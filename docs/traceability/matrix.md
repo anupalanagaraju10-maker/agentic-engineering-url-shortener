@@ -53,6 +53,9 @@ Built incrementally by each phase's traceability task and consolidated in T128.
 | Research R6 registry: EXPIRATION `IMPLEMENTED` with V3, statements citing FR-URL-008/009 and the `probe.expired-link` acceptance probe | SCN-B | ADR-0003 | T112, T117 | `src/main/java/com/agentic/shortener/workflow/rules/CapabilityRegistry.java`, `src/main/java/com/agentic/shortener/workflow/stages/TestStageExecutor.java` (`probe.expired-link`: real 300 ms link, 302 then 410, count 1) | `src/test/java/com/agentic/shortener/workflow/rules/CapabilityRegistryTest.java` (updated), `src/test/java/com/agentic/shortener/workflow/stages/TestStageExecutorTest.java` (+1; the missing-probe test now uses an unknown check id) | 2026-10-02 red (T114, after the HUMAN design approval of run b4ff60fc, decision 14): `./mvnw test -Dtest=LinkExpirationTest,ScenarioBTest,CapabilityRegistryTest,TestStageExecutorTest` ⇒ Tests run: 20, Failures: 7, Errors: 1 (no `expiresAt`, past expiry accepted, expired link still 302, fingerprint ignored `expiresAt`, EXPIRATION not implemented, no expiration probe); `./mvnw verify` after T115–T117 ⇒ pass on first run; 3 consecutive reruns ⇒ pass | — |
 | FR-SCN-002 (SCN-B: brownfield branch, complete impact report before approval, IMPLEMENT not eligible before approval, validation with the expiration probe, release, COMPLETED) | SCN-B | ADR-0003, ADR-0004 | T113 | engine + executors | `src/test/java/com/agentic/shortener/scenario/ScenarioBTest.java` (1) | 2026-10-02 red (T114, after the HUMAN design approval of run b4ff60fc, decision 14): `./mvnw test -Dtest=LinkExpirationTest,ScenarioBTest,CapabilityRegistryTest,TestStageExecutorTest` ⇒ Tests run: 20, Failures: 7, Errors: 1 (no `expiresAt`, past expiry accepted, expired link still 302, fingerprint ignored `expiresAt`, EXPIRATION not implemented, no expiration probe); `./mvnw verify` after T115–T117 ⇒ pass on first run; 3 consecutive reruns ⇒ pass | Live run `b4ff60fc-d24e-4833-8fd7-54625c1ccd48`: pre-code impact analysis `docs/scenarios/scn-b-impact-analysis.md`; evidence pending T120 |
 | FR-SCN-003, SC-007 (SCN-C: genuine suspension at CLARIFICATION with AMB-R2/R4, nothing after the gate runs; HUMAN clarification replans to plan 2; plan-1 decisions refused; the replanned DESIGN decides implementationRequired: false ⇒ no-change evidence accepted and COMPLETED; true ⇒ no-change evidence refused) | SCN-C | ADR-0004 §6 | T121, T122 | engine, `DecisionService.clarify`, `Replanner`, `RecordedBehaviorRules` (no new code: behavior built in Phases 3–8) | `src/test/java/com/agentic/shortener/scenario/ScenarioCTest.java` (2) | 2026-10-02: `./mvnw test -Dtest=ScenarioCTest` ⇒ **passed on its first run** (Tests run: 2, Failures: 0) — no red observed because no gap remained (T122 "red, if any gap remains"); `./mvnw verify` ⇒ pass | Live run `dbbf2627-5e6d-499e-8a57-44ccda16d54e` COMPLETED (docs/scenarios/README.md) |
+| FR-ORC-015, NFR-007 (executable OpenAPI contract: 19 documented operations ⇔ 18 served + actuator health; Link, Run, Stage, PolicyEvaluation, AuditEvent, Decision, Metrics field names = schema properties; Problem required fields) | — | ADR-0003 | T135 | (contract only) `specs/001-agentic-sdlc-url-shortener/contracts/openapi.yaml` | `src/test/java/com/agentic/shortener/contract/OpenApiContractTest.java` (3) | 2026-10-02: `./mvnw test -Dtest=OpenApiContractTest` ⇒ passed on its first run (no red: it verifies existing behavior); size guards added against a vacuous pass ⇒ 3/3 | — |
+| NFR-010, SC-011 (PVT-003/004/005 demonstration measurements) | SCN-A text | — | T125 | — | `src/test/java/com/agentic/shortener/PerformanceMeasurementTest.java` (3, tag `measurement`) | 2026-10-02T18:41:26Z: `./mvnw test -Dgroups=measurement -Dtest.excluded.groups=none -Dtest=PerformanceMeasurementTest` ⇒ 3/3; results in `docs/assessment/measurements.md` | — |
+| FR-OBS-001, NFR-006 (runtime evidence export) | SCN-A/B/C | — | T126 | `scripts/export-run.sh` | manual check: dry run into a temp directory exported 6 files for SCN-A (report `RELEASE_APPROVED`); an unknown run fails with HTTP 404, exit 22, no files | 2026-10-02 | exports pending T127 |
 
 Phase 2 totals (2026-10-02): `./mvnw -B -o verify` ⇒ **Tests run: 71, Failures: 0, Errors: 0**, BUILD SUCCESS.
 Phase 3 totals (2026-10-02): `./mvnw -B -o verify` ⇒ **Tests run: 115, Failures: 0, Errors: 0**, BUILD SUCCESS.
@@ -62,3 +65,28 @@ Phase 6 totals (2026-10-02): `./mvnw verify` ⇒ **Tests run: 246, Failures: 0, 
 Phase 7 totals (2026-10-02): `./mvnw verify` ⇒ **Tests run: 264, Failures: 0, Errors: 0**, BUILD SUCCESS.
 Phase 8 totals (2026-10-02): `./mvnw verify` ⇒ **Tests run: 271, Failures: 0, Errors: 0**, BUILD SUCCESS.
 Phase 9 totals (2026-10-02): `./mvnw verify` ⇒ **Tests run: 273, Failures: 0, Errors: 0**, BUILD SUCCESS.
+Phase 10 (so far, 2026-10-02): `./mvnw verify` ⇒ **Tests run: 276, Failures: 0, Errors: 0**, BUILD SUCCESS.
+
+## Consolidation (T128, 2026-10-02)
+
+- **Coverage**: all 74 FR/NFR identifiers of `spec.md` appear in the rows above (checked by script against
+  the spec's bold requirement IDs; no orphan requirement). Every test listed was executed; results are in
+  the "Executed command / result" column. Totals: 276 tests in the default build, plus 3 `measurement` tests.
+- **Live scenario evidence**: exported unedited by `scripts/export-run.sh` (T127, 2026-10-02T18:48:56–57Z)
+  into `docs/scenarios/scn-a/`, `scn-b/`, `scn-c/`; each export checked against `docs/scenarios/README.md`
+  (status COMPLETED, event counts 39/40/60 gap-free, HUMAN decision ids, report RELEASE_APPROVED).
+- **SC-003 population (CHK028)**: 16/16 gate crossings in the three live runs preceded by the HUMAN decision
+  (audit `seq` comparison, `docs/governance/human-gates-log.md`), plus the automated gate and scenario tests.
+- **Approval before evidence (CHK024)**:
+
+  | Run | DESIGN_APPROVAL decision | Cited revision committed | Evidence recorded |
+  |---|---|---|---|
+  | SCN-A `d76be1a7…` | 3, 2026-10-02T12:53:17Z | `8c1eeff`, 2026-10-02T13:08:03Z | 4, 2026-10-02T14:47:44Z |
+  | SCN-B `b4ff60fc…` | 14, 2026-10-02T17:55:21Z | `b3d0b8d`, 2026-10-02T18:20:27Z | 18, 2026-10-02T18:23:07Z |
+  | SCN-C `dbbf2627…` | 23, 2026-10-02T18:35:39Z | none (no-change evidence) | 24, 2026-10-02T18:36:13Z |
+
+  The runtime cannot observe when external coding started (README limitation); the order above is shown by
+  decision and commit timestamps.
+- **FR-HUM-001 irreversible actions**: none exists in this prototype (research R12); probe cleanup removes
+  only the run's own probe data and the final report is idempotent. A future destructive action would need
+  its own HUMAN gate.

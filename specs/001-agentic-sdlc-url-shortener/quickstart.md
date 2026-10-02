@@ -1,7 +1,8 @@
 # Quickstart & Validation Guide
 
 **Phase**: 1 (`/speckit.plan`) | **Date**: 2026-10-01 (amended at architecture review) |
-Planned, not yet runnable — commands become valid as implementation slices land. Contracts:
+**Validated** 2026-10-02 (T130) against a fresh data directory with the `demo` profile: every URL check,
+the three scenario shapes and every governance/recovery row below behaved as documented (34 checks). Contracts:
 [contracts/openapi.yaml](./contracts/openapi.yaml). Data model: [data-model.md](./data-model.md).
 
 ## Prerequisites
@@ -37,15 +38,18 @@ Use `"actorType":"HUMAN","actorIdentity":"candidate"` for decisions; implementat
 may instead use `"actorType":"AGENT","actorIdentity":"claude-code"`. After each command inspect
 `GET /api/workflows/{id}` (status, pending action, every node's kind/dependencies/state),
 `/events`, `/decisions`. Every decision carries the `planVersion` shown by the run. At the end,
-export `/events`, `/decisions` and `/report` for each run into `docs/scenarios/` as runtime
-evidence.
+export each run with `scripts/export-run.sh <scenario> <run-id>` (run, events, decisions, report and
+metrics into `docs/scenarios/<scenario>/`, never edited by hand). The recorded live runs are listed
+in `docs/scenarios/README.md`.
 
 ### SCN-A — Greenfield (FR-SCN-001)
 
 1. `POST /api/workflows` with "Create a short link for a valid HTTP/HTTPS address, redirect to
-   the original address, and record redirect count and last redirect time." → `GREENFIELD` (the
-   capabilities are `PLANNED` in the registry); `CLARIFICATION` and `IMPACT_ANALYSIS` are
-   `SKIPPED` with `BRANCH_TAKEN`; run `AWAITING_APPROVAL` (`DESIGN_APPROVAL`).
+   the original address, and record redirect count and last redirect time." → `GREENFIELD`;
+   `CLARIFICATION` and `IMPACT_ANALYSIS` are `SKIPPED` with `BRANCH_TAKEN`; run `AWAITING_APPROVAL`
+   (`DESIGN_APPROVAL`). In the recorded live run the capabilities were still `PLANNED`, so the design
+   required implementation; on today's codebase they are `IMPLEMENTED` and the design reports
+   `implementationRequired = false` (evidence may then be a no-change record, as in SCN-C step 4).
 2. `POST /approve` (`DESIGN_APPROVAL`, plan 1) → run `AWAITING_IMPLEMENTATION`.
 3. The engineer implements the core URL shortener under SpecKit tasks (test-first), commits, and
    restarts the app. The run is unchanged after the restart.
@@ -60,8 +64,10 @@ evidence.
 
 1. `POST /api/workflows` with "Add optional expiration to existing links; expired links return
    an expired result distinct from not-found." → `BROWNFIELD`; `IMPACT_ANALYSIS` `SUCCEEDED`
-   (all ten areas); `CHG-01 PASS`; `DESIGN` done; run `AWAITING_APPROVAL` (`DESIGN_APPROVAL`).
-   No expiration code exists yet.
+   (all ten areas plus data flows); `CHG-01 PASS`; `DESIGN` done; run `AWAITING_APPROVAL`
+   (`DESIGN_APPROVAL`). In the recorded live run no expiration code existed yet; on today's codebase
+   it exists, and the design still reports `implementationRequired = true` because "add" is a
+   behavior-change verb (research R6).
 2. Review the impact analysis and design; `POST /approve` → `AWAITING_IMPLEMENTATION`.
 3. Only now: implement expiration (Flyway migration adding `expires_at`, 410 behavior, registry
    entry `PLANNED → IMPLEMENTED`, tests first), commit, restart.
@@ -110,7 +116,7 @@ FAULT_INJECTION_DISABLED`. Compare `GET /api/metrics/workflows?faultInjected=fal
 Metrics: `GET /api/metrics/workflows` → counts, rates, rollbacks, compensations, recovery
 durations, MTTR, labeled `DEMONSTRATION`.
 
-## Known limitations (to be stated in README)
+## Known limitations (stated in full in the README)
 
 - Operator identity is not authenticated.
 - Host names that resolve to private addresses are not blocked.

@@ -945,19 +945,19 @@ only after the clarification.
 
 ## Phase 10: Polish & Cross-Cutting Concerns — plan slice 8
 
-- [ ] T125 [P] Write `src/test/java/com/agentic/shortener/PerformanceMeasurementTest.java`
+- [X] T125 [P] Write `src/test/java/com/agentic/shortener/PerformanceMeasurementTest.java`
   (`@Tag("measurement")`): measure PVT-003 (p95 create/redirect), PVT-004 (SCN-A automated-active
   duration) and PVT-005 (startup to healthy). Run `./mvnw test -Dgroups=measurement -Dtest.excluded.groups=none` (pom excludes the tag by default) and record the
   actual results, labeled demonstration and non-blocking, in `docs/assessment/measurements.md`
   (NFR-010, SC-011).
-- [ ] T126 [P] Create `scripts/export-run.sh`. It uses `curl` to fetch `GET /api/workflows/{id}`,
+- [X] T126 [P] Create `scripts/export-run.sh`. It uses `curl` to fetch `GET /api/workflows/{id}`,
   `/events`, `/decisions`, `/report` and `GET /api/metrics/workflows?faultInjected=false|true` into
   `docs/scenarios/<scenario>/`.
   Traceability: FR-OBS-001, NFR-006 (runtime evidence only).
-- [ ] T127 **HUMAN**: run `scripts/export-run.sh` for the live SCN-A, SCN-B and SCN-C runs and commit
+- [X] T127 **HUMAN**: run `scripts/export-run.sh` for the live SCN-A, SCN-B and SCN-C runs and commit
   the exported **runtime** evidence under `docs/scenarios/scn-a/`, `scn-b/` and `scn-c/`. Never edit
   it by hand.
-- [ ] T128 [P] Consolidate and verify `docs/traceability/matrix.md` (built incrementally by each
+- [X] T128 [P] Consolidate and verify `docs/traceability/matrix.md` (built incrementally by each
   phase's traceability task): requirement → scenario → ADR → task → code → test → evidence. List only
   tests that have actually been executed; no orphan requirements, tasks, code or tests (NFR-007). Include:
   - **SC-003 population** (CHK028): every HUMAN_GATE crossing attempt in the gate/scenario tests
@@ -966,7 +966,7 @@ only after the clarification.
     the evidence time and the cited revision's commit date;
   - FR-HUM-001's irreversible-action gate, satisfied by the documented absence of destructive
     actions (research R12).
-- [ ] T129 [P] Write a concise `README.md`:
+- [X] T129 [P] Write a concise `README.md`:
   - objective;
   - prerequisites;
   - build/test/run commands (including the `demo` profile);
@@ -992,14 +992,14 @@ only after the clarification.
   makes it offline). Record the actual commands and results in
   `docs/assessment/measurements.md`.
   Traceability: NFR-007.
-- [ ] T135 [P] Write `src/test/java/com/agentic/shortener/contract/OpenApiContractTest.java`
+- [X] T135 [P] Write `src/test/java/com/agentic/shortener/contract/OpenApiContractTest.java`
   (reference-alignment review F4; user guide "executable contract validation"): parse
   `specs/001-agentic-sdlc-url-shortener/contracts/openapi.yaml` with SnakeYAML (already on the
   classpath via `spring-boot-starter`; no new dependency, DEP-01 unaffected) and assert, against the
   running MockMvc context, that every documented path + method is mapped (no 404/405) and that the
   top-level response field names of `Run`, `Stage`, `AuditEvent`, `Decision` and `Link` match the
   schema properties. Run it and record the real result. Traceability: FR-ORC-015, NFR-007.
-- [ ] T136 [P] Write `docs/architecture/overview.md` (assignment §5 deliverable; review F2, F6):
+- [X] T136 [P] Write `docs/architecture/overview.md` (assignment §5 deliverable; review F2, F6):
   system context, component view (link plane / workflow plane), the 14-node graph with entry/exit
   gates and the parallel join, persistence and audit model, actor model and **autonomy boundary**
   (deterministic in-app stage agents, Claude Code as the external implementation `AGENT`, humans own
@@ -1007,12 +1007,12 @@ only after the clarification.
   requirement change and rework invalidate everything downstream of the changed node, plan version
   +1), reliability mechanisms, and key trade-offs with links to ADR-0001…0005. Summarize; do not
   duplicate the plan.
-- [ ] T137 [P] Write `docs/governance/human-gates-log.md` (review F7): one row per lifecycle human
+- [X] T137 [P] Write `docs/governance/human-gates-log.md` (review F7): one row per lifecycle human
   gate (constitution ratification, spec approval, plan approval, ADR acceptance, checklist gate,
   pre-implementation review, each phase commit approval, each live-run `DESIGN_APPROVAL` /
   `RELEASE_APPROVAL`), each citing real evidence only (commit id, run id + decision id). No entry
   without evidence.
-- [ ] T138 Write `docs/assessment/reviewer-navigation.md` (review F5): a short guide mapping each
+- [X] T138 Write `docs/assessment/reviewer-navigation.md` (review F5): a short guide mapping each
   assignment requirement and deliverable to the file, test or scenario evidence that demonstrates
   it, plus a 10-minute reading order. Depends on T127–T129, T136, T137.
 
