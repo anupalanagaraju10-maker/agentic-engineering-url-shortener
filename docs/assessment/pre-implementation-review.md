@@ -1,7 +1,7 @@
 # Pre-implementation engineering review (lifecycle step 13)
 
 - **Date**: 2026-10-02
-- **Reviewer**: Claude Code (assistant), acting as independent principal engineer at the human
+- **Reviewer**: Claude Code (assistant), acting as independent Senior Software engineer at the human
   candidate's request. It reviewed artifacts it had itself drafted, adversarially.
 - **Approval**: the human candidate approved the verdict and directed that conditions H1–H5 be
   applied (2026-10-02).
