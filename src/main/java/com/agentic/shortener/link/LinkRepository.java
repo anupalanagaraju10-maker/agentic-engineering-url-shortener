@@ -15,6 +15,8 @@ public interface LinkRepository extends JpaRepository<Link, Long> {
 
     boolean existsByCode(String code);
 
+    long countByProbeRunId(UUID probeRunId);
+
     /** Atomic increment: concurrent redirects never lose a count (FR-URL-012, PVT-008). */
     @Transactional
     @Modifying

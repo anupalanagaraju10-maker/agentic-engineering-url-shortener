@@ -555,18 +555,18 @@ parallel intervals and no remaining probe links.
 
 ### Tests first
 
-- [ ] T065 [P] [US1] Write `test/workflow/stages/TestStageExecutorTest.java`:
+- [X] T065 [P] [US1] Write `test/workflow/stages/TestStageExecutorTest.java`:
   - probes for each requested capability, through `LinkService`, with probe links tagged
     `probe_run_id`;
   - on success the probe links are deleted and the evidence stays in the output (provenance
     `ACTUAL`, FR-ORC-014);
   - a failing probe ⇒ `PERMANENT` with `failure_code = IMPLEMENTATION_DEFECT`.
-- [ ] T066 [P] [US1] Write `test/workflow/stages/SecurityAndDocsExecutorTest.java`:
+- [X] T066 [P] [US1] Write `test/workflow/stages/SecurityAndDocsExecutorTest.java`:
   - SECURITY probes the validator with the unsafe set from T050; any acceptance ⇒
     `IMPLEMENTATION_DEFECT`;
   - DOCS produces the required sections from design, registry and evidence (provenance `ACTUAL`).
   Traceability: FR-URL-003/016, NFR-001, FR-ORC-004.
-- [ ] T067 [P] [US1] Write `test/workflow/stages/ReleaseReadinessAndReportTest.java`:
+- [X] T067 [P] [US1] Write `test/workflow/stages/ReleaseReadinessAndReportTest.java`:
   - readiness fails on an unresolved mandatory policy issue or an unapproved exception;
   - AUD-01 `PASS`/`FAIL`;
   - every task needs a passing check;
@@ -576,10 +576,10 @@ parallel intervals and no remaining probe links.
     `COMPLETED`.
 
   (FR-POL-006, FR-OBS-006, NFR-006)
-- [ ] T068 [P] [US1] Write `test/workflow/ImplementationDefectRoutingTest.java`: a `TEST`/`SECURITY`
+- [X] T068 [P] [US1] Write `test/workflow/ImplementationDefectRoutingTest.java`: a `TEST`/`SECURITY`
   `IMPLEMENTATION_DEFECT` after accepted evidence ⇒ run `AWAITING_REWORK`, with
   `pendingAction = REWORK_OR_TERMINATE`; terminate ⇒ `FAILED` (CHK036; rework is covered in Phase 7).
-- [ ] T069 [P] [US1] Write `test/scenario/ScenarioATest.java` (MockMvc, test-fixture evidence
+- [X] T069 [P] [US1] Write `test/scenario/ScenarioATest.java` (MockMvc, test-fixture evidence
   labeled as fixture):
   - full SCN-A path, with both branches `SKIPPED`;
   - HUMAN design approval, then evidence (changed artifacts + revision);
@@ -590,24 +590,24 @@ parallel intervals and no remaining probe links.
   - no `link` rows with `probe_run_id` remain.
 
   (FR-SCN-001, SC-001, SC-002)
-- [ ] T070 [US1] Run `./mvnw test` for T065–T069 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 5 checkpoint.
+- [X] T070 [US1] Run `./mvnw test` for T065–T069 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 5 checkpoint.
 
 ### Implementation
 
-- [ ] T071 [P] [US1] Implement `main/workflow/stages/TestStageExecutor.java` per T065. Before each
+- [X] T071 [P] [US1] Implement `main/workflow/stages/TestStageExecutor.java` per T065. Before each
   probe-link creation, check the attempt's cancellation token (from `StageContext`), and stop
   without further side effects if it is revoked (H3).
-- [ ] T072 [P] [US1] Implement `main/workflow/stages/SecurityExecutor.java` and `DocsExecutor.java`
+- [X] T072 [P] [US1] Implement `main/workflow/stages/SecurityExecutor.java` and `DocsExecutor.java`
   per T066 (no fallback yet).
-- [ ] T073 [P] [US1] Implement `main/workflow/stages/ReleaseReadinessExecutor.java` (with AUD-01) and
+- [X] T073 [P] [US1] Implement `main/workflow/stages/ReleaseReadinessExecutor.java` (with AUD-01) and
   `FinalReportExecutor.java` per T067.
-- [ ] T074 [US1] Add `IMPLEMENTATION_DEFECT` routing to `AWAITING_REWORK` in `WorkflowEngine.java`
+- [X] T074 [US1] Add `IMPLEMENTATION_DEFECT` routing to `AWAITING_REWORK` in `WorkflowEngine.java`
   per T068.
-- [ ] T075 [US1] Add `GET /api/workflows/{id}/report` to `WorkflowController.java` (409 until
+- [X] T075 [US1] Add `GET /api/workflows/{id}/report` to `WorkflowController.java` (409 until
   `FINAL_REPORT` has succeeded).
   Traceability: FR-OBS-006, NFR-006, FR-ORC-015.
-- [ ] T076 [US1] Run `./mvnw verify`. All tests green (record red → green).
-- [ ] T077 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 5 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T076 [US1] Run `./mvnw verify`. All tests green (record red → green).
+- [X] T077 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 5 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 - [ ] T078 [US1] **HUMAN** (records in `docs/scenarios/README.md`): restart the app on the new code (the SCN-A run is still waiting). Record
   SCN-A implementation evidence via `POST …/implementation`:
   - changed artifacts from Phase 4;

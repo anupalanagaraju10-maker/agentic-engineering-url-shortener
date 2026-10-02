@@ -34,6 +34,9 @@ class LinkServiceCollisionTest {
     @Autowired
     private LinkRepository links;
 
+    @Autowired
+    private IdempotencyRepository keys;
+
     @Test
     void aCollisionRegeneratesTheCode() {
         String taken = uniqueCode();
@@ -84,6 +87,22 @@ class LinkServiceCollisionTest {
         assertThat(links.findByCode(probe.getCode())).isEmpty();
         assertThat(links.findByCode(otherProbe.getCode())).isPresent();
         assertThat(links.findByCode(client.getCode())).isPresent();
+    }
+
+    @Test
+    void idempotentProbeLinksAreCountedAndFullyRemovedWithTheirKeys() {
+        when(generator.next()).thenReturn(uniqueCode(), uniqueCode());
+        UUID run = UUID.randomUUID();
+        String key = "probe-" + run;
+        LinkService.CreateResult first = service.createProbeLink("https://example.com/idem-probe", run, key);
+        LinkService.CreateResult replay = service.createProbeLink("https://example.com/idem-probe", run, key);
+
+        assertThat(replay.replayed()).isTrue();
+        assertThat(replay.link().getCode()).isEqualTo(first.link().getCode());
+        assertThat(service.countProbeLinks(run)).isEqualTo(1);
+        assertThat(service.deleteProbeLinks(run)).isEqualTo(1); // the key row is removed with its link
+        assertThat(service.countProbeLinks(run)).isZero();
+        assertThat(keys.findById(key)).isEmpty();
     }
 
     private static String uniqueCode() {

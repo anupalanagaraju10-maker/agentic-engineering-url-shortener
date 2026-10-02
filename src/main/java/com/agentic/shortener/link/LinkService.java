@@ -53,6 +53,10 @@ public class LinkService {
     }
 
     public CreateResult create(String url, String idempotencyKey) {
+        return create(url, idempotencyKey, null);
+    }
+
+    private CreateResult create(String url, String idempotencyKey, UUID probeRunId) {
         validator.validate(url);
         if (idempotencyKey != null && (idempotencyKey.isBlank() || idempotencyKey.length() > MAX_IDEMPOTENCY_KEY)) {
             throw new ApiException(ErrorCategory.VALIDATION, HttpStatus.BAD_REQUEST,
@@ -72,7 +76,7 @@ public class LinkService {
                 continue;
             }
             try {
-                Link link = tx.execute(status -> insert(code, url, null, idempotencyKey, fingerprint));
+                Link link = tx.execute(status -> insert(code, url, probeRunId, idempotencyKey, fingerprint));
                 return new CreateResult(link, false);
             } catch (DataIntegrityViolationException e) {
                 if (idempotencyKey != null) { // a concurrent request may have taken the key: re-read
@@ -109,25 +113,31 @@ public class LinkService {
 
     /** Transient link for the workflow TEST stage, tagged with its run id for cleanup or compensation. */
     public Link createProbeLink(String url, UUID runId) {
-        validator.validate(url);
-        for (int attempt = 1; attempt <= MAX_CODE_ATTEMPTS; attempt++) {
-            String code = generator.next();
-            if (links.existsByCode(code)) {
-                continue;
-            }
-            try {
-                return tx.execute(status -> insert(code, url, runId, null, null));
-            } catch (DataIntegrityViolationException e) {
-                log.info("Short code collision on probe insert, attempt {} of {}", attempt, MAX_CODE_ATTEMPTS);
-            }
-        }
-        throw new ApiException(ErrorCategory.CODE_SPACE_EXHAUSTED, HttpStatus.SERVICE_UNAVAILABLE,
-                "No unique short code could be generated in " + MAX_CODE_ATTEMPTS + " attempts; no link was created");
+        return createProbeLink(url, runId, null).link();
     }
 
-    /** Removes only the probe links of the given run; client links are never touched. */
+    /** Probe variant of {@link #create}: same validation, codes and idempotency, tagged with the run id. */
+    public CreateResult createProbeLink(String url, UUID runId, String idempotencyKey) {
+        if (runId == null) {
+            throw new IllegalArgumentException("a probe link needs its run id");
+        }
+        return create(url, idempotencyKey, runId);
+    }
+
+    public long countProbeLinks(UUID runId) {
+        return links.countByProbeRunId(runId);
+    }
+
+    /**
+     * Removes only the probe links of the given run, with their idempotency keys, in one transaction; client
+     * links are never touched. Idempotent: a second call deletes nothing.
+     */
     public int deleteProbeLinks(UUID runId) {
-        return links.deleteByProbeRunId(runId);
+        Integer deleted = tx.execute(status -> {
+            keys.deleteForProbeRun(runId);
+            return links.deleteByProbeRunId(runId);
+        });
+        return deleted == null ? 0 : deleted;
     }
 
     private Link insert(String code, String url, UUID probeRunId, String key, String fingerprint) {

@@ -85,6 +85,28 @@ link expiration as a real schema change, so schema evolution has to be explicit.
   history.
 - The atomic counter depends on correct use of an update query. Mitigation: the concurrency test.
 
+## Prototype trade-off and production path
+
+*Recorded 2026-10-02 at the human candidate's direction (Phase 5 checkpoint). This clarifies the
+decision above; it does not change it.* The embedded configuration stays as it is (no
+`AUTO_SERVER` mode, no external database).
+
+- **Sufficient for the assessment**: a 2–3 day prototype must run end to end on a reviewer's
+  machine with only a JDK. Embedded H2 needs no installation, no credentials and no extra process.
+- **Durable**: file mode keeps workflow runs, decisions, audit events and links across restarts. A
+  live run can wait for human decisions or external implementation across application restarts.
+- **Schema evolution**: Flyway owns every schema change as a versioned, reviewable SQL migration
+  (V1 workflow, V2 links, V3 for SCN-B); Hibernate only validates.
+- **Persistence isolated**: all access goes through Spring Data repositories and `WorkflowStore`,
+  so the storage engine is not visible to the domain or workflow logic.
+- **Current limitation**: single process, local deployment. The database file is locked by the
+  running application, and the per-run workflow lock (`RunLocks`) is in memory. So only one
+  application instance may serve a given data directory.
+- **Production scaling path**: an external relational database (e.g. PostgreSQL) behind the same
+  migrations and repositories. The in-memory per-run lock would be replaced by database locking
+  (row lock or advisory lock on the run) or a distributed lock, so several application instances
+  can share the workflow state safely.
+
 ## Reversibility
 
 High. JPA plus Flyway ports to PostgreSQL with a driver and dialect change. Moving from JPA to

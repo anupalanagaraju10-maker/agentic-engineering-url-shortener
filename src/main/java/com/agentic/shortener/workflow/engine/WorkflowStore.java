@@ -298,6 +298,19 @@ public class WorkflowStore {
         });
     }
 
+    /**
+     * IMPLEMENTATION_DEFECT after accepted evidence (CHK036): the failed stages stay FAILED, succeeded branches
+     * are kept, and the run waits for a HUMAN rework or terminate decision.
+     */
+    public void awaitRework(UUID runId, String reason, List<String> nodes) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            updateRun(runId, RunStatus.AWAITING_REWORK, "REWORK_OR_TERMINATE", reason, false);
+            audit.append(runId, AuditEventType.RECOVERY_STARTED, null, Actor.ENGINE,
+                    Map.of("mechanism", "REWORK", "cause", "IMPLEMENTATION_DEFECT", "nodes", nodes), false);
+        });
+    }
+
     /** The run waits for a HUMAN policy-exception decision (research R11; the evaluated node already succeeded). */
     public void waitForExceptionDecision(UUID runId, String pendingAction, Map<String, Object> payload) {
         locks.assertHeld(runId);

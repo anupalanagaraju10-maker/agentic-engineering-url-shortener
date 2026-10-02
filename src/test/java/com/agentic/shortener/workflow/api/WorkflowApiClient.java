@@ -14,39 +14,39 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /** Thin MockMvc client for the workflow API (contracts/openapi.yaml). Decisions here are test fixtures. */
-final class WorkflowApiClient {
+public final class WorkflowApiClient {
 
-    static final String SCN_A = "Create a short link for a valid HTTP/HTTPS address, redirect to the original address, "
+    public static final String SCN_A = "Create a short link for a valid HTTP/HTTPS address, redirect to the original address, "
             + "and record redirect count and last redirect time.";
 
     private final MockMvc mvc;
     private final ObjectMapper json = new ObjectMapper();
 
-    WorkflowApiClient(MockMvc mvc) {
+    public WorkflowApiClient(MockMvc mvc) {
         this.mvc = mvc;
     }
 
-    ResultActions create(String requirement, String actorType, String actorIdentity) throws Exception {
+    public ResultActions create(String requirement, String actorType, String actorIdentity) throws Exception {
         return mvc.perform(post("/api/workflows").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("requirement", requirement, "actorType", actorType,
                         "actorIdentity", actorIdentity))));
     }
 
-    UUID createRun(String requirement) throws Exception {
+    public UUID createRun(String requirement) throws Exception {
         String body = create(requirement, "HUMAN", "candidate").andReturn().getResponse().getContentAsString();
         return UUID.fromString(JsonPath.read(body, "$.id"));
     }
 
-    ResultActions fetch(UUID runId, String suffix) throws Exception {
+    public ResultActions fetch(UUID runId, String suffix) throws Exception {
         return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                 .get("/api/workflows/" + runId + suffix));
     }
 
-    String runJson(UUID runId) throws Exception {
+    public String runJson(UUID runId) throws Exception {
         return mvc.perform(get("/api/workflows/" + runId)).andReturn().getResponse().getContentAsString();
     }
 
-    ResultActions gate(UUID runId, String action, String gate, String actorType, String actorIdentity, int planVersion)
+    public ResultActions gate(UUID runId, String action, String gate, String actorType, String actorIdentity, int planVersion)
             throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("gate", gate);
@@ -57,40 +57,67 @@ final class WorkflowApiClient {
         return postJson("/api/workflows/" + runId + "/" + action, body);
     }
 
-    ResultActions approve(UUID runId, String gate, int planVersion) throws Exception {
+    public ResultActions approve(UUID runId, String gate, int planVersion) throws Exception {
         return gate(runId, "approve", gate, "HUMAN", "candidate", planVersion);
     }
 
-    ResultActions terminate(UUID runId) throws Exception {
+    /** RELEASE_APPROVAL with explicitly accepted residual risks (test fixture decision). */
+    public ResultActions approveRelease(UUID runId, int planVersion, List<String> acceptedRisks) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("gate", "RELEASE_APPROVAL");
+        body.put("actorType", "HUMAN");
+        body.put("actorIdentity", "candidate");
+        body.put("reason", "reviewed readiness report (test fixture)");
+        body.put("planVersion", planVersion);
+        body.put("acceptedRisks", acceptedRisks);
+        return postJson("/api/workflows/" + runId + "/approve", body);
+    }
+
+    /** Implementation evidence citing the run's own requirement IDs (labelled test fixture). */
+    public ResultActions fixtureEvidence(UUID runId) throws Exception {
+        List<String> scope = JsonPath.read(runJson(runId), "$.stages[?(@.node == 'DESIGN')].output.requirementIds[*]");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("actorType", "AGENT");
+        body.put("actorIdentity", "claude-code");
+        body.put("planVersion", 1);
+        body.put("summary", "TEST FIXTURE evidence: link components exist in this build");
+        body.put("changedArtifacts", List.of("src/main/java/com/agentic/shortener/link/LinkService.java",
+                "src/main/java/com/agentic/shortener/link/LinkController.java"));
+        body.put("revision", "0000000");
+        body.put("requirementIds", scope);
+        return evidence(runId, body);
+    }
+
+    public ResultActions terminate(UUID runId) throws Exception {
         return postJson("/api/workflows/" + runId + "/terminate",
                 Map.of("actorType", "HUMAN", "actorIdentity", "candidate", "reason", "no longer needed"));
     }
 
-    ResultActions evidence(UUID runId, Map<String, Object> body) throws Exception {
+    public ResultActions evidence(UUID runId, Map<String, Object> body) throws Exception {
         return postJson("/api/workflows/" + runId + "/implementation", body);
     }
 
-    ResultActions postJson(String path, Map<String, Object> body) throws Exception {
+    public ResultActions postJson(String path, Map<String, Object> body) throws Exception {
         return mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)));
     }
 
-    List<String> decisionTypes(UUID runId) throws Exception {
+    public List<String> decisionTypes(UUID runId) throws Exception {
         String body = mvc.perform(get("/api/workflows/" + runId + "/decisions")).andReturn().getResponse()
                 .getContentAsString();
         return JsonPath.read(body, "$[*].type");
     }
 
-    List<String> eventTypes(UUID runId) throws Exception {
+    public List<String> eventTypes(UUID runId) throws Exception {
         String body = mvc.perform(get("/api/workflows/" + runId + "/events")).andReturn().getResponse()
                 .getContentAsString();
         return JsonPath.read(body, "$[*].type");
     }
 
-    String status(UUID runId) throws Exception {
+    public String status(UUID runId) throws Exception {
         return JsonPath.read(runJson(runId), "$.status");
     }
 
-    String stageStatus(UUID runId, String node) throws Exception {
+    public String stageStatus(UUID runId, String node) throws Exception {
         List<String> statuses = JsonPath.read(runJson(runId), "$.stages[?(@.node == '" + node + "')].status");
         return statuses.get(0);
     }

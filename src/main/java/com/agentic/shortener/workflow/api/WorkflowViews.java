@@ -1,5 +1,7 @@
 package com.agentic.shortener.workflow.api;
 
+import com.agentic.shortener.common.ApiException;
+import com.agentic.shortener.common.ErrorCategory;
 import com.agentic.shortener.workflow.engine.ActorType;
 import com.agentic.shortener.workflow.engine.AuditEventType;
 import com.agentic.shortener.workflow.engine.DecisionType;
@@ -25,9 +27,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
-/** Builds the response views of contracts/openapi.yaml (Run, Stage, PolicyEvaluation, AuditEvent, Decision). */
+/** Builds the response views of contracts/openapi.yaml (Run, Stage, PolicyEvaluation, AuditEvent, Decision, report). */
 @Component
 public class WorkflowViews {
 
@@ -93,6 +96,17 @@ public class WorkflowViews {
     public List<DecisionView> decisions(UUID runId) {
         store.loadRun(runId);
         return store.decisions(runId).stream().map(this::decision).toList();
+    }
+
+    /** The FINAL_REPORT output; 409 until that stage has succeeded (FR-OBS-006, NFR-006). */
+    public Map<String, Object> report(UUID runId) {
+        store.loadRun(runId);
+        WorkflowStage stage = store.stageMap(runId).get(Node.FINAL_REPORT);
+        if (stage == null || stage.getStatus() != StageStatus.SUCCEEDED) {
+            throw new ApiException(ErrorCategory.INVALID_STATE, HttpStatus.CONFLICT,
+                    "the final report is available once FINAL_REPORT has succeeded");
+        }
+        return parse(stage.getOutputJson());
     }
 
     private StageView stage(NodeDefinition d, WorkflowStage s) {

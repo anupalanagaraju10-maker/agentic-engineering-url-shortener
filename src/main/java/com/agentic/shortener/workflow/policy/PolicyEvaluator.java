@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
  * Evaluates policy v1 checks after their bound node and persists every result (FR-POL-001..004).
  * Mandatory FAIL ⇒ non-recoverable safe-stop. EXCEPTION_REQUESTED ⇒ the run waits for a HUMAN exception
  * decision (run status AWAITING_APPROVAL, pendingAction EXCEPTION:&lt;checkId&gt;; the evaluated node has already
- * succeeded, so the run, not the node, waits). AUD-01 is evaluated by RELEASE_READINESS (Phase 5).
+ * succeeded, so the run, not the node, waits). AUD-01 is computed by RELEASE_READINESS and recorded here.
  */
 @Component
 @Order(2)
@@ -41,6 +41,12 @@ public class PolicyEvaluator implements PostStageHook {
             results.put("CHG-01", PolicyCatalog.chg01(String.valueOf(understand.get("changeType")),
                     outputs.get(Node.IMPACT_ANALYSIS)));
             results.put("DEP-01", PolicyCatalog.dep01(strings(design.get("dependencies"))));
+        } else if (node == Node.RELEASE_READINESS) {
+            // AUD-01 is computed by the readiness stage from the persisted trail; recorded here (H1).
+            Object aud01 = outputs.getOrDefault(Node.RELEASE_READINESS, Map.of()).get("aud01");
+            Map<?, ?> audit = aud01 instanceof Map<?, ?> m ? m : Map.of();
+            PolicyResult result = "PASS".equals(audit.get("result")) ? PolicyResult.PASS : PolicyResult.FAIL;
+            results.put("AUD-01", new PolicyOutcome(result, String.valueOf(audit.get("reason"))));
         } else {
             return HookOutcome.proceed();
         }

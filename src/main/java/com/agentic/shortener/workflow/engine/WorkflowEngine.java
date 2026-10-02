@@ -29,8 +29,9 @@ import org.springframework.stereotype.Component;
  * persistence happens here, on the coordinating thread that holds the run lock. Transactions (H2): every
  * state change is its own short transaction inside {@link WorkflowStore}; nothing wraps a whole command.
  *
- * <p>Interim failure policy (Phase 2): any stage failure ends the run FAILED. Retry, rework routing and
- * safe-stop are added in Phases 5–6.
+ * <p>Failure policy: a PERMANENT {@code IMPLEMENTATION_DEFECT} (a TEST/SECURITY probe failing after accepted
+ * evidence) moves the run to AWAITING_REWORK (CHK036); any other stage failure ends the run FAILED. Retry,
+ * fallback, compensation events and safe-stop routing are added in Phase 6.
  */
 @Component
 public class WorkflowEngine {
@@ -140,6 +141,7 @@ public class WorkflowEngine {
     private boolean runWave(WorkflowRun run, List<NodeDefinition> wave, Map<Node, Map<String, Object>> outputs) {
         UUID runId = run.getId();
         boolean failed = false;
+        List<String> defects = new ArrayList<>();
         HookOutcome stop = null;
         List<Submitted> submitted = new ArrayList<>();
         for (NodeDefinition definition : wave) {
@@ -182,8 +184,16 @@ public class WorkflowEngine {
             } else {
                 store.failStage(runId, s.node(), result.failureClass(), result.failureCode(), result.failureReason(),
                         a.startedAt(), a.endedAt(), a.threadName());
-                failed = true;
+                if (isImplementationDefect(s.node(), result)) {
+                    defects.add(s.node().name());
+                } else {
+                    failed = true;
+                }
             }
+        }
+        if (!failed && !defects.isEmpty()) {
+            store.awaitRework(runId, "implementation defect found by " + String.join(", ", defects), defects);
+            return false;
         }
         if (failed) {
             store.failRun(runId, "a stage failed; see STAGE_FAILED events");
@@ -241,6 +251,12 @@ public class WorkflowEngine {
             return new Attempt(StageResult.failure(FailureClass.PERMANENT, "EXECUTOR_ERROR",
                     e.getCause().getClass().getSimpleName()), now, now, "unknown");
         }
+    }
+
+    /** CHK036: only the validation stages report defects in the recorded implementation. */
+    private static boolean isImplementationDefect(Node node, StageResult result) {
+        return (node == Node.TEST || node == Node.SECURITY) && result.failureClass() == FailureClass.PERMANENT
+                && "IMPLEMENTATION_DEFECT".equals(result.failureCode());
     }
 
     private static boolean isDone(StageStatus status) {

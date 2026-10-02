@@ -18,6 +18,7 @@ import com.agentic.shortener.workflow.engine.ImplementationEvidenceService;
 import com.agentic.shortener.workflow.engine.ImplementationEvidenceService.EvidenceCommand;
 import com.agentic.shortener.workflow.engine.WorkflowEngine;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -90,6 +91,11 @@ public class WorkflowController {
     @GetMapping("/{id}/decisions")
     public List<DecisionView> decisions(@PathVariable UUID id) {
         return views.decisions(id);
+    }
+
+    @GetMapping("/{id}/report")
+    public Map<String, Object> report(@PathVariable UUID id) {
+        return views.report(id);
     }
 
     @PostMapping("/{id}/approve")
