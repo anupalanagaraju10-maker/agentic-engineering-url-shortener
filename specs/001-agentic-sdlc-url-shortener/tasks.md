@@ -133,15 +133,15 @@ needs. ⚠️ No user-story work starts before this phase is green.
 
 ### Tests first
 
-- [ ] T011 [P] Write `test/common/ProblemDetailsTest.java`. Error responses must be
+- [X] T011 [P] Write `test/common/ProblemDetailsTest.java`. Error responses must be
   `application/problem+json` with `type`, `title`, `status` and `category`, and no stack trace. The
   categories are the OpenAPI enum `VALIDATION, NOT_FOUND, EXPIRED, CONFLICT, INVALID_STATE,
   STALE_PLAN_VERSION, EVIDENCE_SCOPE_MISMATCH, CHANGE_CONTROL_REQUIRED, FAULT_INJECTION_DISABLED,
   REPLAN_FAILED, STORAGE_UNAVAILABLE, CODE_SPACE_EXHAUSTED, INTERNAL`.
   Traceability: FR-URL-015, NFR-001.
-- [ ] T012 [P] Write `test/PlaneBoundaryTest.java`: no class under `com.agentic.shortener.link`
+- [X] T012 [P] Write `test/PlaneBoundaryTest.java`: no class under `com.agentic.shortener.link`
   imports `com.agentic.shortener.workflow` (NFR-003, ADR-0001).
-- [ ] T013 [P] Write `test/workflow/engine/WorkflowGraphTest.java`. The graph has exactly the 14 nodes
+- [X] T013 [P] Write `test/workflow/engine/WorkflowGraphTest.java`. The graph has exactly the 14 nodes
   `INTAKE, UNDERSTAND, CLARIFICATION, DECOMPOSE, IMPACT_ANALYSIS, DESIGN, DESIGN_APPROVAL,
   IMPLEMENT, TEST, DOCS, SECURITY, RELEASE_READINESS, RELEASE_APPROVAL, FINAL_REPORT` with these
   properties:
@@ -154,7 +154,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - `RELEASE_READINESS` depends on all three.
 
   (FR-ORC-001/002/004/005)
-- [ ] T014 [P] Write `test/workflow/audit/AuditServiceTest.java`:
+- [X] T014 [P] Write `test/workflow/audit/AuditServiceTest.java`:
   - events get a per-run increasing `seq`;
   - each carries `run_id`, `correlation_id`, `actor_type`, `actor_identity`, `plan_version`,
     `policy_version` and `injected`;
@@ -169,7 +169,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
     gap-free `seq` values (no `UNIQUE(run_id, seq)` violation).
 
   (FR-OBS-001/002)
-- [ ] T015 [P] Write `test/workflow/engine/ActorValidatorTest.java`:
+- [X] T015 [P] Write `test/workflow/engine/ActorValidatorTest.java`:
   - `SYSTEM` is never accepted from the API;
   - human gates, clarification, rework, termination, requirement change, policy exceptions and
     resume accept only `HUMAN`;
@@ -179,7 +179,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - `claude-code` is refused as HUMAN.
 
   (ADR-0004 §1, FR-HUM-006)
-- [ ] T016 [P] Write `test/workflow/engine/WorkflowEngineTest.java` using stub executors:
+- [X] T016 [P] Write `test/workflow/engine/WorkflowEngineTest.java` using stub executors:
   - sequential order;
   - a node starts only when every dependency is `SUCCEEDED`/`SKIPPED`;
   - conditional nodes are `SKIPPED`, with a `BRANCH` decision and a `BRANCH_TAKEN` event;
@@ -199,7 +199,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
     immediately with `409 CONFLICT` ("run busy"), without waiting.
 
   (FR-ORC-003..008, SC-002, ADR-0003)
-- [ ] T017 [P] Write `test/workflow/rules/CapabilityRegistryTest.java`:
+- [X] T017 [P] Write `test/workflow/rules/CapabilityRegistryTest.java`:
   - every `IMPLEMENTED` entry references existing classes and test files;
   - every entry lists vocabulary, requirement IDs and recorded behavior statements B1..Bn exactly
     as the research R6 table;
@@ -207,14 +207,14 @@ needs. ⚠️ No user-story work starts before this phase is green.
     EXPIRATION).
 
   (Research R6)
-- [ ] T018 Run `./mvnw test` for T011–T017 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 2 checkpoint.
+- [X] T018 Run `./mvnw test` for T011–T017 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 2 checkpoint.
 
 ### Implementation
 
-- [ ] T019 [P] Create `main/common/ErrorCategory.java` (the enum from T011) and
+- [X] T019 [P] Create `main/common/ErrorCategory.java` (the enum from T011) and
   `main/common/GlobalExceptionHandler.java`, which maps exceptions to `ProblemDetail` with
   `category` and no stack traces (FR-URL-015).
-- [ ] T020 Create `src/main/resources/db/migration/V1__workflow_tables.sql` with the five control-plane
+- [X] T020 Create `src/main/resources/db/migration/V1__workflow_tables.sql` with the five control-plane
   tables exactly as in data-model.md:
   - `workflow_run`:
     - `id` UUID PK; `correlation_id` VARCHAR(64);
@@ -247,7 +247,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
     - `plan_version` INT; `policy_version` VARCHAR(16); `injected` BOOLEAN; `payload_json` CLOB;
       `created_at`.
   Traceability: FR-ORC-006, ADR-0002.
-- [ ] T021 [P] Create the enums under `main/workflow/engine/`:
+- [X] T021 [P] Create the enums under `main/workflow/engine/`:
   - `Node` (14 values);
   - `NodeKind` (`AUTOMATED`, `HUMAN_GATE`, `EXTERNAL_ACTION`);
   - `RunStatus` (`RUNNING`, `AWAITING_CLARIFICATION`, `AWAITING_APPROVAL`,
@@ -260,7 +260,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - `AuditEventType` (the data-model event catalog, including `REPLAN_ABORTED`).
 
   (FR-ORC-011)
-- [ ] T022 [P] Create the JPA entities and repositories under `main/workflow/persistence/`:
+- [X] T022 [P] Create the JPA entities and repositories under `main/workflow/persistence/`:
   `WorkflowRun` (with `@Version`), `WorkflowStage`, `Decision`, `PolicyEvaluation`, `AuditEvent`. For
   the append-only audit trail (ADR-0002), use the simplest approach:
   - `AuditEvent` is annotated `@org.hibernate.annotations.Immutable`, with all columns
@@ -269,22 +269,22 @@ needs. ⚠️ No user-story work starts before this phase is green.
     (not `JpaRepository`/`CrudRepository`), so it inherits no delete or update methods;
   - it declares only `AuditEvent save(AuditEvent newEvent)`, used solely by `AuditService` for new
     events, plus finder methods.
-- [ ] T023 Implement `main/workflow/audit/AuditService.java`: append-only writes with per-run `seq`
+- [X] T023 Implement `main/workflow/audit/AuditService.java`: append-only writes with per-run `seq`
   and copied correlation/plan/policy version; `SYSTEM`/`workflow-engine` for engine events. `seq`
   allocation is serialized per run (an in-JVM per-run lock around read-max-plus-one and insert, in its
   own short transaction) as a safety net, even though writes normally come only from the
   coordinating thread (H1).
   Traceability: per T014; FR-OBS-001/002.
-- [ ] T024 [P] Implement `main/workflow/engine/Actor.java` (record `actorType`, `actorIdentity`) and
+- [X] T024 [P] Implement `main/workflow/engine/Actor.java` (record `actorType`, `actorIdentity`) and
   `main/workflow/engine/ActorValidator.java` per T015.
-- [ ] T025 Implement `main/workflow/engine/WorkflowGraph.java` per T013: a static node definition
+- [X] T025 Implement `main/workflow/engine/WorkflowGraph.java` per T013: a static node definition
   with dependencies, kind, conditional flag and entry/exit-condition hooks.
-- [ ] T026 Implement `main/workflow/engine/StageExecutor.java` (interface `Node node(); StageResult
+- [X] T026 Implement `main/workflow/engine/StageExecutor.java` (interface `Node node(); StageResult
   execute(StageContext ctx)`), `StageContext.java` (run, persisted upstream outputs, and the
   attempt's cancellation token; H3) and
   `StageResult.java` (success output + provenance | failure class/code/reason).
   Traceability: per T016; FR-ORC-009, FR-ORC-014.
-- [ ] T027 Implement `main/workflow/engine/WorkflowEngine.java`:
+- [X] T027 Implement `main/workflow/engine/WorkflowEngine.java`:
   - wave scheduling on a fixed thread pool;
   - eligibility = `PENDING` and all dependencies `SUCCEEDED`/`SKIPPED`;
   - per-run `ReentrantLock` taken with **`tryLock()` (no wait)**: if it is held ⇒ `409 CONFLICT`
@@ -305,7 +305,7 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - stops at `HUMAN_GATE` (`BLOCKED`, `AWAITING_*`) and at `EXTERNAL_ACTION` (`BLOCKED`,
     `AWAITING_IMPLEMENTATION`, `IMPLEMENTATION_REQUESTED`);
   - `pending_action` set (FR-ORC-003..009, ADR-0003).
-- [ ] T028 Implement `main/workflow/rules/CapabilityRegistry.java` per T017: five capabilities, all
+- [X] T028 Implement `main/workflow/rules/CapabilityRegistry.java` per T017: five capabilities, all
   `PLANNED`, each with the R5 vocabulary and acceptance-probe identifiers, and with requirement IDs
   and recorded behavior statements B1..Bn **exactly as the research R6 table**:
   - CREATE_LINK → FR-URL-001..005, 013, 016;
@@ -313,8 +313,8 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - ANALYTICS → FR-URL-010, 012;
   - IDEMPOTENCY → FR-URL-011;
   - EXPIRATION → FR-URL-008, 009.
-- [ ] T029 Run `./mvnw verify`. T011–T017 pass (record red → green).
-- [ ] T030 Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 2 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T029 Run `./mvnw verify`. T011–T017 pass (record red → green).
+- [X] T030 Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 2 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `feat: add workflow persistence, DAG and engine core`.
 
