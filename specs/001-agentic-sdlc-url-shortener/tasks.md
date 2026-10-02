@@ -608,7 +608,7 @@ parallel intervals and no remaining probe links.
   Traceability: FR-OBS-006, NFR-006, FR-ORC-015.
 - [X] T076 [US1] Run `./mvnw verify`. All tests green (record red → green).
 - [X] T077 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 5 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
-- [ ] T078 [US1] **HUMAN** (records in `docs/scenarios/README.md`): restart the app on the new code (the SCN-A run is still waiting). Record
+- [X] T078 [US1] **HUMAN** (records in `docs/scenarios/README.md`): restart the app on the new code (the SCN-A run is still waiting). Record
   SCN-A implementation evidence via `POST …/implementation`:
   - changed artifacts from Phase 4;
   - the Phase 4 commit id as `revision`;
