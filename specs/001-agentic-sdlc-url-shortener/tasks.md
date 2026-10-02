@@ -902,7 +902,7 @@ behavior.
   Traceability: per T112; research R6.
 - [X] T118 [US4] Run `./mvnw verify`. All tests green (record red → green).
 - [X] T119 [US4] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 8 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
-- [ ] T120 [US4] **HUMAN** (records in `docs/scenarios/README.md`): commit (e.g. `feat: add optional link expiration (SCN-B brownfield)`),
+- [X] T120 [US4] **HUMAN** (records in `docs/scenarios/README.md`): commit (e.g. `feat: add optional link expiration (SCN-B brownfield)`),
   restart the app, record the SCN-B evidence (changed artifacts + commit id + requirement IDs), and
   **approve `RELEASE_APPROVAL`**. The run reaches `COMPLETED`.
 

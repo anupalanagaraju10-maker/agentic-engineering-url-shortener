@@ -34,6 +34,23 @@ issued by the candidate (pre-implementation review H5). Runtime exports follow i
 - T110: `DESIGN_APPROVAL` granted by HUMAN/candidate (decision 14, 2026-10-02T17:55:21Z), plan version 1,
   after review of the impact analysis. No expiration code existed then (last commit `d157765`,
   2026-10-02T16:39:14Z); the expiration tests and code were written afterwards (Phase 8).
+- Implementation: commit `b3d0b8d57cbfb9443cddf257f03a930c9049e38b` (2026-10-02T18:20:27Z, Phase 8), the build
+  running when the evidence was recorded.
+- T120: implementation evidence recorded by HUMAN/candidate (decision 18, 2026-10-02T18:23:07Z): 7 changed
+  artifacts, requirement IDs FR-URL-008/009; designed component `RedirectController` not cited (unchanged by
+  design, listed as a residual risk).
+- Validation (persisted intervals, 2026-10-02T18:23:07Z):
+  - TEST, stage-worker-2, .118300 → .557703: `probe.expired-link` passed ("active link redirected; redirect
+    after expiry refused with EXPIRED; redirect count stayed 1"); 0 probe links remaining;
+  - DOCS, stage-worker-3, .122831 → .123823: 8/8 sections;
+  - SECURITY, stage-worker-4, .125827 → .135823: 20/20 unsafe inputs rejected;
+  - TEST overlaps DOCS and SECURITY; DOCS and SECURITY do **not** overlap each other (final report
+    `intervalsOverlapPairwise: false`). Concurrency of the real executors is proven by `ParallelValidationTest`.
+  - RELEASE_READINESS started at .599134, after all three ended; ready, AUD-01 PASS, CHG-01 PASS.
+- T120: `RELEASE_APPROVAL` granted by HUMAN/candidate (decision 19, 2026-10-02T18:25:30Z) with four accepted
+  risks: RedirectController not cited; self-reported evidence; no authentication (EXC-003); DOCS/SECURITY
+  intervals not overlapping.
+- Outcome: `COMPLETED`. 40 audit events, gap-free. Final report outcome `RELEASE_APPROVED`.
 - Not used as evidence: runs `5e73e337-db63-4d1e-8b2c-d0f0fba93ce7` and
   `942efe8b-eb66-4027-9236-96b592042a75` were created by mistake on a stale Phase 5 process that was still
   serving port 8080, so their impact analyses lack data flows. Both were terminated by HUMAN/candidate
