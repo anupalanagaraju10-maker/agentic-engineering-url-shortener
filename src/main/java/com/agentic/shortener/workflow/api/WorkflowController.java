@@ -3,9 +3,13 @@ package com.agentic.shortener.workflow.api;
 import com.agentic.shortener.common.ApiException;
 import com.agentic.shortener.common.ErrorCategory;
 import com.agentic.shortener.workflow.api.WorkflowRequests.ActorReason;
+import com.agentic.shortener.workflow.api.WorkflowRequests.Clarify;
+import com.agentic.shortener.workflow.api.WorkflowRequests.ExceptionDecision;
 import com.agentic.shortener.workflow.api.WorkflowRequests.CreateRun;
 import com.agentic.shortener.workflow.api.WorkflowRequests.GateDecision;
 import com.agentic.shortener.workflow.api.WorkflowRequests.ImplementationEvidence;
+import com.agentic.shortener.workflow.api.WorkflowRequests.RequirementChange;
+import com.agentic.shortener.workflow.api.WorkflowRequests.Rework;
 import com.agentic.shortener.workflow.api.WorkflowViews.DecisionView;
 import com.agentic.shortener.workflow.api.WorkflowViews.EventView;
 import com.agentic.shortener.workflow.api.WorkflowViews.RunView;
@@ -13,6 +17,7 @@ import com.agentic.shortener.workflow.engine.Actor;
 import com.agentic.shortener.workflow.engine.ActorAction;
 import com.agentic.shortener.workflow.engine.ActorValidator;
 import com.agentic.shortener.workflow.engine.DecisionService;
+import com.agentic.shortener.workflow.engine.DecisionService.ExceptionCommand;
 import com.agentic.shortener.workflow.engine.DecisionService.GateCommand;
 import com.agentic.shortener.workflow.engine.Fault;
 import com.agentic.shortener.workflow.engine.FaultInjector;
@@ -121,6 +126,36 @@ public class WorkflowController {
     @PostMapping("/{id}/terminate")
     public RunView terminate(@PathVariable UUID id, @RequestBody ActorReason request) {
         decisions.terminate(id, new Actor(request.actorType(), request.actorIdentity()), request.reason());
+        return views.run(id);
+    }
+
+    @PostMapping("/{id}/clarify")
+    public RunView clarify(@PathVariable UUID id, @RequestBody Clarify request) {
+        decisions.clarify(id, new Actor(request.actorType(), request.actorIdentity()), request.reason(),
+                request.clarification(), request.planVersion());
+        return views.run(id);
+    }
+
+    @PostMapping("/{id}/requirement-change")
+    public RunView requirementChange(@PathVariable UUID id, @RequestBody RequirementChange request) {
+        decisions.changeRequirement(id, new Actor(request.actorType(), request.actorIdentity()), request.reason(),
+                request.requirement(), request.planVersion());
+        return views.run(id);
+    }
+
+    @PostMapping("/{id}/rework")
+    public RunView rework(@PathVariable UUID id, @RequestBody Rework request) {
+        decisions.rework(id, new Actor(request.actorType(), request.actorIdentity()), request.reason(),
+                request.fromNode(), request.planVersion());
+        return views.run(id);
+    }
+
+    @PostMapping("/{id}/policy-exceptions/{checkId}")
+    public RunView policyException(@PathVariable UUID id, @PathVariable String checkId,
+            @RequestBody ExceptionDecision request) {
+        decisions.decideException(id, checkId, new ExceptionCommand(new Actor(request.actorType(),
+                request.actorIdentity()), request.reason(), request.decision(), request.planVersion(), request.scope(),
+                request.compensatingControl(), request.expiresOrReview()));
         return views.run(id);
     }
 

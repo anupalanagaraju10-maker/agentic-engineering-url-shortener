@@ -118,13 +118,39 @@ public final class WorkflowApiClient {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("actorType", "AGENT");
         body.put("actorIdentity", "claude-code");
-        body.put("planVersion", 1);
+        body.put("planVersion", planVersion(runId));
         body.put("summary", "TEST FIXTURE evidence: link components exist in this build");
         body.put("changedArtifacts", List.of("src/main/java/com/agentic/shortener/link/LinkService.java",
                 "src/main/java/com/agentic/shortener/link/LinkController.java"));
         body.put("revision", "0000000");
         body.put("requirementIds", scope);
         return evidence(runId, body);
+    }
+
+    public int planVersion(UUID runId) throws Exception {
+        return JsonPath.read(runJson(runId), "$.planVersion");
+    }
+
+    public ResultActions clarify(UUID runId, String clarification, int planVersion, String actorType) throws Exception {
+        return postJson("/api/workflows/" + runId + "/clarify", Map.of("actorType", actorType, "actorIdentity",
+                "HUMAN".equals(actorType) ? "candidate" : "claude-code", "reason", "answering the open questions",
+                "clarification", clarification, "planVersion", planVersion));
+    }
+
+    public ResultActions requirementChange(UUID runId, String requirement, int planVersion) throws Exception {
+        return postJson("/api/workflows/" + runId + "/requirement-change", Map.of("actorType", "HUMAN",
+                "actorIdentity", "candidate", "reason", "material change requested", "requirement", requirement,
+                "planVersion", planVersion));
+    }
+
+    public ResultActions rework(UUID runId, String fromNode, int planVersion, String actorType) throws Exception {
+        return postJson("/api/workflows/" + runId + "/rework", Map.of("actorType", actorType, "actorIdentity",
+                "HUMAN".equals(actorType) ? "candidate" : "claude-code", "reason", "rework requested",
+                "fromNode", fromNode, "planVersion", planVersion));
+    }
+
+    public ResultActions policyException(UUID runId, String checkId, Map<String, Object> body) throws Exception {
+        return postJson("/api/workflows/" + runId + "/policy-exceptions/" + checkId, body);
     }
 
     public ResultActions terminate(UUID runId) throws Exception {

@@ -21,6 +21,21 @@ public final class WorkflowRequests {
     public record ActorReason(ActorType actorType, String actorIdentity, String reason) {
     }
 
+    public record Clarify(ActorType actorType, String actorIdentity, String reason, String clarification,
+            Integer planVersion) {
+    }
+
+    public record RequirementChange(ActorType actorType, String actorIdentity, String reason, String requirement,
+            Integer planVersion) {
+    }
+
+    public record Rework(ActorType actorType, String actorIdentity, String reason, String fromNode, Integer planVersion) {
+    }
+
+    public record ExceptionDecision(ActorType actorType, String actorIdentity, String reason, String decision,
+            Integer planVersion, String scope, String compensatingControl, String expiresOrReview) {
+    }
+
     public record ImplementationEvidence(ActorType actorType, String actorIdentity, Integer planVersion, String summary,
             List<String> changedArtifacts, String revision, String noChangeJustification, List<String> requirementIds) {
     }

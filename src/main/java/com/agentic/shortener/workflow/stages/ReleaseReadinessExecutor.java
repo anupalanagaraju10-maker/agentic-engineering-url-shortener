@@ -75,7 +75,9 @@ public class ReleaseReadinessExecutor implements StageExecutor {
                         p.getResolutionDecisionId(), p.getPlanVersion()))
                 .toList();
         List<DecisionRow> decisionRows = store.decisions(runId).stream()
-                .map(d -> new DecisionRow(d.getId(), d.getType(), d.getGate(), d.getPlanVersion())).toList();
+                .map(d -> new DecisionRow(d.getId(), d.getType(), d.getGate(), d.getPlanVersion(),
+                        field(d.getPayloadJson(), "expiresOrReview")))
+                .toList();
         List<EventRow> eventRows = events.findByRunIdOrderBySeqAsc(runId).stream().map(this::row).toList();
         return new Input(context.planVersion(), stages, context.upstreamOutputs(), policyRows, decisionRows, eventRows,
                 links.countProbeLinks(runId));
@@ -83,6 +85,15 @@ public class ReleaseReadinessExecutor implements StageExecutor {
 
     private EventRow row(AuditEvent e) {
         return new EventRow(e.getSeq(), e.getType(), e.getNode(), decisionId(e.getPayloadJson()));
+    }
+
+    private String field(String payload, String name) {
+        try {
+            JsonNode value = payload == null ? null : json.readTree(payload).get(name);
+            return value == null || value.isNull() ? null : value.asText();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Long decisionId(String payload) {

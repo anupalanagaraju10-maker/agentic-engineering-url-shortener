@@ -422,6 +422,97 @@ public class WorkflowStore {
         });
     }
 
+    // ---------------------------------------------------------------- replanning causes and policy exceptions
+
+    /**
+     * Clarification (inside the replan transaction): CLARIFICATION decision and event; the gate is kept
+     * SUCCEEDED holding the answer (research R10); the current requirement gains the clarification.
+     */
+    public void recordClarification(UUID runId, Actor actor, String reason, String clarification, int newPlan) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.CLARIFICATION, Node.CLARIFICATION.name(),
+                    actor.actorType(), actor.actorIdentity(), reason, newPlan, null,
+                    toJson(Map.of("clarification", clarification)), Instant.now()));
+            audit.append(runId, AuditEventType.CLARIFICATION_RECEIVED, Node.CLARIFICATION, actor,
+                    Map.of("decisionId", decision.getId(), "clarification", clarification), false);
+            jdbc.update("""
+                    update workflow_stage set status = 'SUCCEEDED', output_json = ?, provenance = 'EXTERNAL', ended_at = ?,
+                        plan_version = ?
+                    where run_id = ? and node = 'CLARIFICATION'""",
+                    toJson(Map.of("decisionId", decision.getId(), "clarification", clarification)), now(), newPlan, runId);
+            jdbc.update("update workflow_run set current_requirement = concat(current_requirement, ?) where id = ?",
+                    " Clarification: " + clarification, runId);
+            audit.append(runId, AuditEventType.STAGE_SUCCEEDED, Node.CLARIFICATION, Actor.ENGINE,
+                    Map.of("provenance", Provenance.EXTERNAL.name(), "decisionId", decision.getId()), false);
+        });
+    }
+
+    /** Requirement change (inside the replan transaction): REQUIREMENT_CHANGE decision; new current requirement. */
+    public void recordRequirementChange(UUID runId, Actor actor, String reason, String requirement, int newPlan) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            String previous = loadRun(runId).getCurrentRequirement();
+            decisions.save(new Decision(runId, DecisionType.REQUIREMENT_CHANGE, null, actor.actorType(),
+                    actor.actorIdentity(), reason, newPlan, null,
+                    toJson(Map.of("previous", previous, "requirement", requirement)), Instant.now()));
+            jdbc.update("update workflow_run set current_requirement = ? where id = ?", requirement, runId);
+        });
+    }
+
+    /** Rework (inside the replan transaction): REWORK decision naming the node the run restarts from. */
+    public void recordRework(UUID runId, Actor actor, String reason, Node fromNode, int newPlan) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> decisions.save(new Decision(runId, DecisionType.REWORK, fromNode.name(),
+                actor.actorType(), actor.actorIdentity(), reason, newPlan, null, toJson(Map.of("fromNode", fromNode.name())),
+                Instant.now())));
+    }
+
+    /** A replanned UNDERSTAND still reports ambiguity: the kept CLARIFICATION gate opens another round. */
+    public void reopenClarification(UUID runId) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            int rows = jdbc.update("""
+                    update workflow_stage set status = 'PENDING', output_json = null, provenance = null, ended_at = null
+                    where run_id = ? and node = 'CLARIFICATION' and status = 'SUCCEEDED'""", runId);
+            if (rows == 1) {
+                audit.append(runId, AuditEventType.STAGE_INVALIDATED, Node.CLARIFICATION, Actor.ENGINE,
+                        Map.of("reason", "UNDERSTAND still reports material ambiguity: another clarification round"),
+                        false);
+            }
+        });
+    }
+
+    /**
+     * HUMAN policy-exception decision (FR-POL-004/005). APPROVE records every FR-POL-005 field, resolves the
+     * EXCEPTION_REQUESTED row and lets the run continue; REJECT resolves it and safe-stops (non-recoverable).
+     */
+    public Decision decideException(UUID runId, String checkId, Actor actor, String reason, boolean approve,
+            Map<String, Object> record, int planVersion) {
+        locks.assertHeld(runId);
+        return tx.execute(status -> {
+            Map<String, Object> payload = new LinkedHashMap<>(record);
+            payload.put("policyId", checkId);
+            payload.put("approvedAt", Instant.now().toString());
+            Decision decision = decisions.save(new Decision(runId, approve ? DecisionType.EXCEPTION_APPROVED
+                    : DecisionType.EXCEPTION_REJECTED, checkId, actor.actorType(), actor.actorIdentity(), reason,
+                    planVersion, null, toJson(payload), Instant.now()));
+            jdbc.update("""
+                    update policy_evaluation set resolution_decision_id = ?
+                    where run_id = ? and check_id = ? and plan_version = ? and result = 'EXCEPTION_REQUESTED'
+                        and resolution_decision_id is null""", decision.getId(), runId, checkId, planVersion);
+            Map<String, Object> event = new LinkedHashMap<>(payload);
+            event.put("decisionId", decision.getId());
+            event.put("reason", reason);
+            audit.append(runId, approve ? AuditEventType.EXCEPTION_APPROVED : AuditEventType.EXCEPTION_REJECTED, null,
+                    actor, event, false);
+            if (approve) {
+                updateRun(runId, RunStatus.RUNNING, null, null, false);
+            }
+            return decision;
+        });
+    }
+
     // ---------------------------------------------------------------- reliability (ADR-0005)
 
     public int attempts(UUID runId, Node node) {

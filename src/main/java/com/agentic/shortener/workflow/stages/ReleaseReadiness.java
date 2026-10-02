@@ -4,6 +4,10 @@ import com.agentic.shortener.workflow.engine.AuditEventType;
 import com.agentic.shortener.workflow.engine.DecisionType;
 import com.agentic.shortener.workflow.engine.Node;
 import com.agentic.shortener.workflow.engine.StageStatus;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,14 +30,25 @@ public final class ReleaseReadiness {
             int planVersion) {
     }
 
-    public record DecisionRow(long id, DecisionType type, String gate, int planVersion) {
+    /** {@code expiresOrReview} is set for policy-exception approvals (FR-POL-005). */
+    public record DecisionRow(long id, DecisionType type, String gate, int planVersion, String expiresOrReview) {
+
+        public DecisionRow(long id, DecisionType type, String gate, int planVersion) {
+            this(id, type, gate, planVersion, null);
+        }
     }
 
     public record EventRow(int seq, AuditEventType type, Node node, Long decisionId) {
     }
 
     public record Input(int planVersion, Map<Node, StageStatus> stages, Map<Node, Map<String, Object>> outputs,
-            List<PolicyRow> policies, List<DecisionRow> decisions, List<EventRow> events, long probeLinksRemaining) {
+            List<PolicyRow> policies, List<DecisionRow> decisions, List<EventRow> events, long probeLinksRemaining,
+            Instant now) {
+
+        public Input(int planVersion, Map<Node, StageStatus> stages, Map<Node, Map<String, Object>> outputs,
+                List<PolicyRow> policies, List<DecisionRow> decisions, List<EventRow> events, long probeLinksRemaining) {
+            this(planVersion, stages, outputs, policies, decisions, events, probeLinksRemaining, Instant.now());
+        }
     }
 
     public static Map<String, Object> evaluate(Input in) {
@@ -71,10 +86,16 @@ public final class ReleaseReadiness {
                 resolved = false;
                 blockers.add("unresolved mandatory policy failure " + p.checkId());
             } else if ("EXCEPTION_REQUESTED".equals(p.result())) {
-                resolved = p.resolutionDecisionId() != null && in.decisions().stream().anyMatch(
-                        d -> d.id() == p.resolutionDecisionId() && d.type() == DecisionType.EXCEPTION_APPROVED);
-                if (!resolved) {
+                DecisionRow approval = p.resolutionDecisionId() == null ? null : in.decisions().stream()
+                        .filter(d -> d.id() == p.resolutionDecisionId() && d.type() == DecisionType.EXCEPTION_APPROVED)
+                        .findFirst().orElse(null);
+                if (approval == null) {
+                    resolved = false;
                     blockers.add("policy exception " + p.checkId() + " is not approved by a HUMAN decision");
+                } else if (expired(approval.expiresOrReview(), in.now())) {
+                    resolved = false; // CHK006: evaluated once, here; a passed dated expiry counts as unapproved
+                    blockers.add("policy exception " + p.checkId() + " expired on " + approval.expiresOrReview()
+                            + " and counts as unapproved; a new exception decision is required");
                 }
             }
             Map<String, Object> row = new LinkedHashMap<>();
@@ -135,7 +156,10 @@ public final class ReleaseReadiness {
                 case IMPLEMENTATION_EVIDENCE -> AuditEventType.IMPLEMENTATION_RECORDED;
                 case EXCEPTION_APPROVED -> AuditEventType.EXCEPTION_APPROVED;
                 case EXCEPTION_REJECTED -> AuditEventType.EXCEPTION_REJECTED;
-                default -> null;
+                case CLARIFICATION -> AuditEventType.CLARIFICATION_RECEIVED;
+                case DECISION_INVALIDATED -> AuditEventType.DECISION_INVALIDATED;
+                case RESUME -> AuditEventType.RUN_RESUMED;
+                default -> null; // BRANCH below; REWORK and REQUIREMENT_CHANGE are recorded by PLAN_REPLANNED
             };
             if (d.type() == DecisionType.BRANCH) {
                 Node node = Node.valueOf(d.gate());
@@ -189,6 +213,22 @@ public final class ReleaseReadiness {
         }
         risks.add("No authentication; actor types are self-declared (EXC-003)");
         return risks;
+    }
+
+    /** A dated expiry (ISO date or instant) that has passed; a review condition in words never auto-expires. */
+    static boolean expired(String expiresOrReview, Instant now) {
+        if (expiresOrReview == null) {
+            return false;
+        }
+        try {
+            return LocalDate.parse(expiresOrReview.trim()).isBefore(LocalDate.ofInstant(now, ZoneOffset.UTC));
+        } catch (DateTimeParseException notADate) {
+            try {
+                return Instant.parse(expiresOrReview.trim()).isBefore(now);
+            } catch (DateTimeParseException notAnInstant) {
+                return false;
+            }
+        }
     }
 
     private static boolean has(Input in, AuditEventType type, Node node) {

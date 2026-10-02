@@ -115,7 +115,10 @@ public class ImplementationEvidenceService {
         }
     }
 
-    /** The latest APPROVAL at DESIGN_APPROVAL for the current plan version that nothing has superseded. */
+    /**
+     * The latest APPROVAL at DESIGN_APPROVAL that nothing has superseded. A replan that affects the design
+     * supersedes it (DECISION_INVALIDATED); a rework that starts below the gate preserves it (ADR-0004 §5/§6).
+     */
     private Decision validDesignApproval(WorkflowRun run) {
         List<Decision> lineage = store.decisions(run.getId());
         Set<Long> superseded = lineage.stream().map(Decision::getSupersedesId).filter(java.util.Objects::nonNull)
@@ -123,7 +126,7 @@ public class ImplementationEvidenceService {
         Decision latest = null;
         for (Decision d : lineage) {
             if (d.getType() == DecisionType.APPROVAL && Node.DESIGN_APPROVAL.name().equals(d.getGate())
-                    && d.getPlanVersion().equals(run.getPlanVersion()) && !superseded.contains(d.getId())) {
+                    && !superseded.contains(d.getId())) {
                 latest = d;
             }
         }

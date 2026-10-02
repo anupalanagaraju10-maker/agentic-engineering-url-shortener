@@ -101,7 +101,37 @@ public class ImpactAnalysisExecutor implements StageExecutor {
         report.put("regressionRisks", regressionRisks);
         report.put("securityReliabilityImpact", securityReliability);
         report.put("rollbackCompensation", rollback);
+        report.put("dataFlows", dataFlows(requested)); // additive (T133); not one of CHG-01's ten areas
         return StageResult.success(report, Provenance.ACTUAL);
+    }
+
+    /**
+     * Request → controller → service → persistence → data paths of each requested capability (assignment §4.3
+     * "data flows"), built from the registry's interfaces, design components and data changes. Deterministic.
+     */
+    private List<String> dataFlows(List<Capability> requested) {
+        List<String> flows = new ArrayList<>();
+        for (Capability capability : requested) {
+            CapabilityEntry entry = registry.entry(capability);
+            String controllers = layer(entry.designComponents(), c -> c.endsWith("Controller"));
+            String services = layer(entry.designComponents(), c -> !c.endsWith("Controller") && !isPersistence(c));
+            String persistence = layer(entry.designComponents(), ImpactAnalysisExecutor::isPersistence);
+            String data = entry.dataChanges().isEmpty() ? "no data change" : String.join(", ", entry.dataChanges());
+            for (String endpoint : entry.interfaces()) {
+                flows.add(capability + ": " + endpoint + " → " + controllers + " → " + services + " → " + persistence
+                        + " → " + data);
+            }
+        }
+        return flows;
+    }
+
+    private static boolean isPersistence(String component) {
+        return component.endsWith("Repository") || component.equals("Link") || component.endsWith("Record");
+    }
+
+    private static String layer(List<String> components, java.util.function.Predicate<String> member) {
+        List<String> selected = components.stream().filter(member).toList();
+        return selected.isEmpty() ? "(none)" : String.join(", ", selected);
     }
 
     @Override

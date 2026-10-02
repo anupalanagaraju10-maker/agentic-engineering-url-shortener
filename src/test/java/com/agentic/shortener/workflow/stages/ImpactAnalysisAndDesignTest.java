@@ -5,6 +5,7 @@ import static com.agentic.shortener.workflow.stages.StageTestSupport.outputOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentic.shortener.workflow.engine.Node;
+import com.agentic.shortener.workflow.policy.PolicyCatalog;
 import com.agentic.shortener.workflow.rules.AmbiguityRules;
 import com.agentic.shortener.workflow.rules.Capability;
 import com.agentic.shortener.workflow.rules.CapabilityRegistry;
@@ -52,6 +53,23 @@ class ImpactAnalysisAndDesignTest {
         }
         assertThat(report.get("affectedComponents").toString()).contains("LinkService");
         assertThat(report.get("currentBehavior").toString()).contains("redirects to its original address");
+    }
+
+    @Test
+    void impactReportTracesDataFlowsAdditivelyAndDeterministically() {
+        // T132 (reference-alignment review F3, assignment §4.3): request → service → repository → table paths
+        CapabilityRegistry registry = CapabilityRegistry.withImplemented(Capability.CREATE_LINK, Capability.REDIRECT,
+                Capability.ANALYTICS, Capability.IDEMPOTENCY);
+        Map<String, Object> report = upstream(SCN_B, registry, true).get(Node.IMPACT_ANALYSIS);
+
+        @SuppressWarnings("unchecked")
+        List<String> flows = (List<String>) report.get("dataFlows");
+        assertThat(flows).isNotEmpty().allSatisfy(flow -> assertThat(flow).isNotBlank().contains(" → "));
+        assertThat(flows).anyMatch(f -> f.startsWith("EXPIRATION:") && f.contains("POST /api/links")
+                && f.contains("LinkService") && f.contains("expires_at"));
+        assertThat(upstream(SCN_B, registry, true).get(Node.IMPACT_ANALYSIS).get("dataFlows")).isEqualTo(flows);
+        // additive: CHG-01 still requires exactly the ten spec areas
+        assertThat(PolicyCatalog.IMPACT_AREAS).hasSize(10).doesNotContain("dataFlows");
     }
 
     @Test

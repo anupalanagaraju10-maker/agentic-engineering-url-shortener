@@ -756,7 +756,7 @@ and policy-exception rows behave as specified.
 
 ### Tests first
 
-- [ ] T097 [P] [US5] Write `test/workflow/engine/ReplannerTest.java`:
+- [X] T097 [P] [US5] Write `test/workflow/engine/ReplannerTest.java`:
   - affected = from-node + descendants, everything else preserved;
   - `STAGE_INVALIDATED` keeps prior outputs;
   - `DECISION_INVALIDATED` for approvals and implementation evidence;
@@ -766,7 +766,7 @@ and policy-exception rows behave as specified.
     `REPLAN_FAILED`.
 
   (FR-ORC-013, FR-POL-007, CHK007, SC-007)
-- [ ] T098 [P] [US5] Write `test/workflow/api/ClarificationTest.java`:
+- [X] T098 [P] [US5] Write `test/workflow/api/ClarificationTest.java`:
   - `POST …/clarify` (HUMAN) while `AWAITING_CLARIFICATION` ⇒ `CLARIFICATION_RECEIVED`, replan from
     `UNDERSTAND`, `CLARIFICATION` kept `SUCCEEDED`;
   - a still-ambiguous clarification ⇒ another round (plan +1 each);
@@ -775,7 +775,7 @@ and policy-exception rows behave as specified.
   - stale plan ⇒ 409.
 
   (FR-SCN-003, CHK010, CHK034)
-- [ ] T099 [P] [US5] Write `test/workflow/api/RequirementChangeAndReworkTest.java`:
+- [X] T099 [P] [US5] Write `test/workflow/api/RequirementChangeAndReworkTest.java`:
   - requirement change after design approval ⇒ plan +1, approval invalidated, re-approval
     required; `changesApprovedRequirements` listed when applicable;
   - rework from `DOCS` after a release rejection ⇒ only `DOCS`/`RELEASE_READINESS`/`RELEASE_APPROVAL`
@@ -786,7 +786,7 @@ and policy-exception rows behave as specified.
   - HUMAN only.
 
   (FR-HUM-005, FR-ORC-013, CHK036, NFR-008)
-- [ ] T100 [P] [US6] Write `test/workflow/policy/PolicyExceptionTest.java`:
+- [X] T100 [P] [US6] Write `test/workflow/policy/PolicyExceptionTest.java`:
   - PRIV-01 `EXCEPTION_REQUESTED` blocks;
   - HUMAN approval requires `scope`, `compensatingControl` and `expiresOrReview`, and records
     `EXCEPTION_APPROVED` with all FR-POL-005 fields;
@@ -796,7 +796,7 @@ and policy-exception rows behave as specified.
   - AGENT is refused.
 
   (FR-POL-004/005/006, CHK006)
-- [ ] T101 [P] [US6] Write `test/workflow/metrics/MetricsTest.java` over a known event sequence:
+- [X] T101 [P] [US6] Write `test/workflow/metrics/MetricsTest.java` over a known event sequence:
   - success rate = COMPLETED / (COMPLETED + FAILED + non-recoverable SAFE_STOPPED);
   - failure rate defined likewise; in-progress runs excluded;
   - retry frequency = retries / automated attempts;
@@ -808,38 +808,38 @@ and policy-exception rows behave as specified.
     statistics`.
 
   (FR-OBS-004/005, CHK016/017/030/038, SC-010)
-- [ ] T132 [P] [US4] Extend `test/workflow/stages/ImpactAnalysisAndDesignTest.java` (reference-alignment
+- [X] T132 [P] [US4] Extend `test/workflow/stages/ImpactAnalysisAndDesignTest.java` (reference-alignment
   review F3, assignment §4.3 "data flows"): the brownfield impact output also contains a non-blank
   `dataFlows` entry describing request → service → repository → table paths for each affected
   capability, deterministic for identical input; CHG-01 is unchanged (still the 10 spec areas; `dataFlows`
   is additive and not a CHG-01 condition). Runs red with T102.
-- [ ] T102 [US5] Run `./mvnw test` for T097–T101 and T132 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 7 checkpoint.
+- [X] T102 [US5] Run `./mvnw test` for T097–T101 and T132 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 7 checkpoint.
 
 ### Implementation
 
-- [ ] T103 [US5] Implement `main/workflow/engine/Replanner.java`: one `@Transactional` unit covering
+- [X] T103 [US5] Implement `main/workflow/engine/Replanner.java`: one `@Transactional` unit covering
   stage resets, invalidation events, `DECISION_INVALIDATED`, the probe-link sweep, plan +1,
   `PLAN_REPLANNED` and the status change. On exception it rolls back, writes `REPLAN_ABORTED` in a
   new transaction and throws `REPLAN_FAILED`. Engine advancement happens only after commit.
   Traceability: per T097; FR-ORC-013, FR-POL-007.
-- [ ] T104 [US5] Add the approved-behavior conflict rule to `main/workflow/rules/AmbiguityRules.java`
+- [X] T104 [US5] Add the approved-behavior conflict rule to `main/workflow/rules/AmbiguityRules.java`
   (or a sibling `ApprovedRequirementConflictRule.java`) using exactly the research R6
   contradiction patterns (EXPIRATION B4, CREATE_LINK B2/B3, IDEMPOTENCY B4).
-- [ ] T105 [US5] Add `POST …/clarify`, `POST …/requirement-change` and `POST …/rework` to
+- [X] T105 [US5] Add `POST …/clarify`, `POST …/requirement-change` and `POST …/rework` to
   `WorkflowController.java`, implemented in `DecisionService.java` via `Replanner`, per T098/T099.
-- [ ] T106 [US6] Add `POST …/policy-exceptions/{checkId}` (HUMAN; APPROVE/REJECT with the required
+- [X] T106 [US6] Add `POST …/policy-exceptions/{checkId}` (HUMAN; APPROVE/REJECT with the required
   fields) to `WorkflowController.java`, the exception resolution in `PolicyEvaluator.java`, and the
   expiry evaluation at readiness in `ReleaseReadinessExecutor.java`.
   Traceability: per T100; FR-POL-004/005.
-- [ ] T107 [US6] Implement `main/workflow/metrics/MetricsService.java` (derived from runs, stages and
+- [X] T107 [US6] Implement `main/workflow/metrics/MetricsService.java` (derived from runs, stages and
   events only) and `main/workflow/api/MetricsController.java` (`GET /api/metrics/workflows`,
   `faultInjected` filter) per T101.
-- [ ] T133 [US4] Add the additive `dataFlows` output to `main/workflow/stages/ImpactAnalysisExecutor.java`
+- [X] T133 [US4] Add the additive `dataFlows` output to `main/workflow/stages/ImpactAnalysisExecutor.java`
   per T132, built from the existing `CapabilityRegistry` entries (interfaces, components, data changes);
   `PolicyCatalog.IMPACT_AREAS` stays unchanged. Must land before T110 so the live SCN-B report
   includes it. Traceability: FR-SCN-002, assignment §4.3.
-- [ ] T108 [US5] Run `./mvnw verify`. All tests green (record red → green).
-- [ ] T109 [US5] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 7 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T108 [US5] Run `./mvnw verify`. All tests green (record red → green).
+- [X] T109 [US5] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 7 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `feat: add atomic replanning, policy exceptions and
 metrics`.
