@@ -14,6 +14,8 @@ import com.agentic.shortener.workflow.engine.ActorAction;
 import com.agentic.shortener.workflow.engine.ActorValidator;
 import com.agentic.shortener.workflow.engine.DecisionService;
 import com.agentic.shortener.workflow.engine.DecisionService.GateCommand;
+import com.agentic.shortener.workflow.engine.Fault;
+import com.agentic.shortener.workflow.engine.FaultInjector;
 import com.agentic.shortener.workflow.engine.ImplementationEvidenceService;
 import com.agentic.shortener.workflow.engine.ImplementationEvidenceService.EvidenceCommand;
 import com.agentic.shortener.workflow.engine.WorkflowEngine;
@@ -45,9 +47,11 @@ public class WorkflowController {
     private final ImplementationEvidenceService evidence;
     private final ActorValidator actors;
     private final WorkflowViews views;
+    private final FaultInjector faults;
 
     public WorkflowController(WorkflowEngine engine, DecisionService decisions, ImplementationEvidenceService evidence,
-            ActorValidator actors, WorkflowViews views) {
+            ActorValidator actors, WorkflowViews views, FaultInjector faults) {
+        this.faults = faults;
         this.engine = engine;
         this.decisions = decisions;
         this.evidence = evidence;
@@ -69,11 +73,15 @@ public class WorkflowController {
             throw new ApiException(ErrorCategory.VALIDATION, HttpStatus.BAD_REQUEST,
                     "X-Correlation-Id must be at most 64 characters");
         }
+        List<Fault> faultPlan = List.of();
         if (request.faults() != null && !request.faults().isEmpty()) {
-            throw new ApiException(ErrorCategory.FAULT_INJECTION_DISABLED, HttpStatus.BAD_REQUEST,
-                    "fault injection is disabled");
+            if (!faults.enabled()) {
+                throw new ApiException(ErrorCategory.FAULT_INJECTION_DISABLED, HttpStatus.BAD_REQUEST,
+                        "fault injection is disabled (enable it with the demo profile)");
+            }
+            faultPlan = faults.parse(request.faults());
         }
-        UUID runId = engine.createRun(requirement, actor, correlationId);
+        UUID runId = engine.createRun(requirement, actor, correlationId, faultPlan);
         engine.advance(runId);
         return ResponseEntity.status(HttpStatus.CREATED).body(views.run(runId));
     }
@@ -113,6 +121,12 @@ public class WorkflowController {
     @PostMapping("/{id}/terminate")
     public RunView terminate(@PathVariable UUID id, @RequestBody ActorReason request) {
         decisions.terminate(id, new Actor(request.actorType(), request.actorIdentity()), request.reason());
+        return views.run(id);
+    }
+
+    @PostMapping("/{id}/resume")
+    public RunView resume(@PathVariable UUID id, @RequestBody ActorReason request) {
+        decisions.resume(id, new Actor(request.actorType(), request.actorIdentity()), request.reason());
         return views.run(id);
     }
 

@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * HUMAN gate decisions: approve, reject, terminate (FR-HUM-001..007, ADR-0004). Every command is checked
+ * HUMAN gate decisions: approve, reject, terminate, resume (FR-HUM-001..007, FR-REL-009, ADR-0004). Every command is checked
  * under the run lock (busy ⇒ 409, H4) in this order: actor, required fields, waiting state, plan version.
  * A refused command is recorded as DECISION_REFUSED before the error is returned; run state is unchanged.
  */
@@ -68,7 +68,33 @@ public class DecisionService {
                 throw refuse(run, "terminate", actor, ErrorCategory.INVALID_STATE, HttpStatus.CONFLICT,
                         "run in status " + run.getStatus() + " cannot be terminated");
             }
+            if (!engine.sweepProbeLinks(runId, "terminate")) { // compensation before the run ends (ADR-0005 §6)
+                store.safeStop(runId, "compensation failed during terminate", false);
+                store.recoveryFailedForOpenIncidents(runId, "SAFE_STOPPED");
+                return store.loadRun(runId);
+            }
             store.terminateRun(runId, actor, reason, run.getPlanVersion());
+            store.recoveryFailedForOpenIncidents(runId, "TERMINATED");
+            return store.loadRun(runId);
+        });
+    }
+
+    /**
+     * RESUME (HUMAN only, FR-REL-009): only a recoverable SAFE_STOPPED run. Succeeded stages are kept; only
+     * PENDING eligible nodes run (a failed parallel branch re-runs alone).
+     */
+    public WorkflowRun resume(UUID runId, Actor actor, String reason) {
+        return locks.withLock(runId, () -> {
+            WorkflowRun run = store.loadRun(runId);
+            validateActor(run, actor, ActorAction.RESUME, "resume");
+            requireReason(run, actor, reason, "resume");
+            if (run.getStatus() != RunStatus.SAFE_STOPPED || !Boolean.TRUE.equals(run.getRecoverable())) {
+                throw refuse(run, "resume", actor, ErrorCategory.INVALID_STATE, HttpStatus.CONFLICT,
+                        "only a recoverable SAFE_STOPPED run can be resumed (status " + run.getStatus()
+                                + ", recoverable " + run.getRecoverable() + ")");
+            }
+            store.resumeRun(runId, actor, reason, run.getPlanVersion());
+            engine.advance(runId);
             return store.loadRun(runId);
         });
     }

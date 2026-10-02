@@ -37,6 +37,45 @@ public final class WorkflowApiClient {
         return UUID.fromString(JsonPath.read(body, "$.id"));
     }
 
+    /** Run creation with a fault plan (FR-REL-011); accepted only when fault injection is enabled. */
+    public ResultActions createWithFaults(String requirement, List<Map<String, Object>> faults) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("requirement", requirement);
+        body.put("actorType", "HUMAN");
+        body.put("actorIdentity", "candidate");
+        body.put("faults", faults);
+        return postJson("/api/workflows", body);
+    }
+
+    public UUID createRunWithFaults(String requirement, List<Map<String, Object>> faults) throws Exception {
+        String body = createWithFaults(requirement, faults).andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(body, "$.id"));
+    }
+
+    public static Map<String, Object> fault(String stage, String type, int times) {
+        return Map.of("stage", stage, "type", type, "times", times);
+    }
+
+    /** Design approval plus labelled fixture evidence: the run then executes TEST ‖ DOCS ‖ SECURITY. */
+    public void throughValidation(UUID runId) throws Exception {
+        approve(runId, "DESIGN_APPROVAL", 1);
+        fixtureEvidence(runId);
+    }
+
+    public ResultActions resume(UUID runId, String actorType, String actorIdentity) throws Exception {
+        return postJson("/api/workflows/" + runId + "/resume",
+                Map.of("actorType", actorType, "actorIdentity", actorIdentity, "reason", "resume after review"));
+    }
+
+    public List<Map<String, Object>> events(UUID runId) throws Exception {
+        return JsonPath.read(fetch(runId, "/events").andReturn().getResponse().getContentAsString(), "$[*]");
+    }
+
+    public Object stageField(UUID runId, String node, String field) throws Exception {
+        List<Object> values = JsonPath.read(runJson(runId), "$.stages[?(@.node == '" + node + "')]." + field);
+        return values.get(0);
+    }
+
     public ResultActions fetch(UUID runId, String suffix) throws Exception {
         return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                 .get("/api/workflows/" + runId + suffix));

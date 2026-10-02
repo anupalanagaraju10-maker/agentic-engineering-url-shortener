@@ -21,10 +21,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * TEST: runs every task's acceptance probes against the running build through {@link LinkService} (plan node
- * contract, FR-ORC-014). Probe links are real, tagged with the run id, and removed before the stage ends;
- * the evidence lives in the output and the audit trail. A failing probe after accepted evidence is a
- * PERMANENT {@code IMPLEMENTATION_DEFECT} (CHK036). The cancellation token is checked before every probe,
- * so a revoked attempt creates no further probe link (H3). Formal compensation events are added in Phase 6.
+ * contract, FR-ORC-014). Probe links are real and tagged with the run id. On success TEST removes them itself
+ * and keeps the evidence in its output; on any failure they stay for the engine's compensation sweep
+ * (ADR-0005 §6). A failing probe after accepted evidence is a PERMANENT {@code IMPLEMENTATION_DEFECT}
+ * (CHK036). The cancellation token is checked before every probe, so a revoked attempt creates no further
+ * probe link (H3). The attempt's fault point fires after the probes and before the cleanup.
  */
 @Component
 public class TestStageExecutor implements StageExecutor {
@@ -66,8 +67,6 @@ public class TestStageExecutor implements StageExecutor {
         } catch (RuntimeException e) {
             return StageResult.failure(FailureClass.TRANSIENT, "PROBE_ERROR",
                     "probe could not run: " + e.getClass().getSimpleName());
-        } finally {
-            links.deleteProbeLinks(runId);
         }
 
         List<String> failed = results.stream().filter(r -> !Boolean.TRUE.equals(r.get("passed")))
@@ -76,6 +75,8 @@ public class TestStageExecutor implements StageExecutor {
             return StageResult.failure(FailureClass.PERMANENT, "IMPLEMENTATION_DEFECT",
                     "acceptance probes failed: " + String.join("; ", failed));
         }
+        context.faultPoint().reached(); // an injected fault leaves the probe links for compensation
+        links.deleteProbeLinks(runId);
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("probes", results);
         output.put("probeLinksCreated", created[0]);

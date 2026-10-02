@@ -10,6 +10,7 @@ import com.agentic.shortener.link.LinkService;
 import com.agentic.shortener.workflow.api.WorkflowApiClient;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,10 +52,19 @@ class ImplementationDefectRoutingTest {
         List<String> codes = JsonPath.read(run, "$.stages[?(@.node == 'TEST')].failureReason");
         assertThat(codes.get(0)).contains("probe.redirect");
         assertThat(api.stageStatus(runId, "RELEASE_READINESS")).isEqualTo("PENDING");
-        assertThat(api.eventTypes(runId)).contains("RECOVERY_STARTED");
+        // T085: the defect opens an incident whose recovery mechanism is REWORK
+        List<Map<String, Object>> events = api.events(runId);
+        Map<String, Object> detected = events.stream().filter(e -> "FAILURE_DETECTED".equals(e.get("type")))
+                .filter(e -> "TEST".equals(((Map<?, ?>) e.get("payload")).get("node"))).findFirst().orElseThrow();
+        assertThat(events).anySatisfy(e -> {
+            assertThat(e.get("type")).isEqualTo("RECOVERY_STARTED");
+            assertThat(((Map<?, ?>) e.get("payload")).get("mechanism")).isEqualTo("REWORK");
+            assertThat(((Map<?, ?>) e.get("payload")).get("incidentId")).isEqualTo(detected.get("seq"));
+        });
         assertThat(links.countProbeLinks(runId)).isZero();
 
         api.terminate(runId).andExpect(status().isOk());
         assertThat(api.status(runId)).isEqualTo("FAILED");
+        assertThat(api.eventTypes(runId)).contains("RECOVERY_FAILED"); // the rework incident closes unrecovered
     }
 }

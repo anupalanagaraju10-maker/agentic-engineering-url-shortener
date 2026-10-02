@@ -634,7 +634,7 @@ quickstart recovery table behaves as specified.
 
 ### Tests first
 
-- [ ] T079 [P] [US3] Write `test/workflow/engine/FaultInjectionConfigTest.java`:
+- [X] T079 [P] [US3] Write `test/workflow/engine/FaultInjectionConfigTest.java`:
   - default config ⇒ a run with `faults` gets `400 FAULT_INJECTION_DISABLED`;
   - with `workflow.fault-injection.enabled=true` it is accepted;
   - injected effects carry `injected=true`;
@@ -644,7 +644,7 @@ quickstart recovery table behaves as specified.
     distinct threads.
 
   (CHK038, FR-REL-011, SC-002/CHK027)
-- [ ] T080 [P] [US3] Write `test/workflow/engine/RetryTimeoutTest.java`:
+- [X] T080 [P] [US3] Write `test/workflow/engine/RetryTimeoutTest.java`:
   - TRANSIENT ×1 ⇒ 2 attempts and success, with `RETRY_SCHEDULED`;
   - PERMANENT ⇒ no retry;
   - TRANSIENT ×3 ⇒ `RETRY_EXHAUSTED` ⇒ `SAFE_STOPPED` (recoverable);
@@ -653,10 +653,10 @@ quickstart recovery table behaves as specified.
   - backoff is 100 ms then 200 ms.
 
   (FR-REL-001..004, PVT-001/002, SC-004, NFR-002)
-- [ ] T081 [P] [US3] Write `test/workflow/engine/FallbackTest.java`: DOCS TRANSIENT ×3 ⇒
+- [X] T081 [P] [US3] Write `test/workflow/engine/FallbackTest.java`: DOCS TRANSIENT ×3 ⇒
   `FALLBACK_USED`, provenance `FALLBACK`, all required sections present; SECURITY never falls back
   (FR-REL-005, FR-ORC-014).
-- [ ] T082 [P] [US3] Write `test/workflow/engine/RollbackCompensationTest.java`:
+- [X] T082 [P] [US3] Write `test/workflow/engine/RollbackCompensationTest.java`:
   - a TEST fault after probe creation ⇒ `ATTEMPT_ROLLED_BACK` (no output committed) and
     `COMPENSATION_STARTED/COMPLETED` (probe links deleted), then retry;
   - `COMPENSATION_FAILURE` ⇒ `COMPENSATION_FAILED` ⇒ `SAFE_STOPPED`, non-recoverable;
@@ -667,14 +667,14 @@ quickstart recovery table behaves as specified.
     before the next attempt; and after the run completes, **zero** links tagged with the run remain.
 
   (FR-REL-006, ADR-0005 §5/6)
-- [ ] T083 [P] [US3] Write `test/workflow/engine/SafeStopResumeTest.java`:
+- [X] T083 [P] [US3] Write `test/workflow/engine/SafeStopResumeTest.java`:
   - resume is HUMAN-only, and refused for non-recoverable or completed runs;
   - succeeded nodes are never re-executed;
   - with a SECURITY failure in the parallel group, resume re-runs only SECURITY;
   - state, reason, history and the recoverable flag are preserved.
 
   (FR-REL-007..010, SC-006)
-- [ ] T084 [P] [US3] Write `test/workflow/RestartPersistenceTest.java` (two Spring contexts over one
+- [X] T084 [P] [US3] Write `test/workflow/RestartPersistenceTest.java` (two Spring contexts over one
   temp H2 file):
   - runs waiting at a gate and at `AWAITING_IMPLEMENTATION` are identical after restart and continue
     normally;
@@ -687,14 +687,14 @@ quickstart recovery table behaves as specified.
     surrounding transaction (H2).
 
   (FR-ORC-006, NFR-004, SC-005, CHK033)
-- [ ] T085 [P] [US3] Write `test/workflow/engine/IncidentEventsTest.java`:
+- [X] T085 [P] [US3] Write `test/workflow/engine/IncidentEventsTest.java`:
   - first failure ⇒ `FAILURE_DETECTED`;
   - `RECOVERY_STARTED` with mechanism `RETRY`/`FALLBACK`/`COMPENSATION`/`RESUME`/`REWORK`;
   - `RECOVERY_COMPLETED` on later success;
   - `RECOVERY_FAILED` when the run ends `FAILED` or non-recoverable `SAFE_STOPPED`.
 
   (FR-OBS-003)
-- [ ] T086 [P] [US3] Write `test/workflow/DeterminismTest.java`:
+- [X] T086 [P] [US3] Write `test/workflow/DeterminismTest.java`:
   - run the same requirement, HUMAN decisions and fault plan twice;
   - assert an identical semantic stage path per research R20: nodes executed/skipped, branch
     outcomes, gate locations, failure class and code, requirement/capability decisions, and the
@@ -703,23 +703,23 @@ quickstart recovery table behaves as specified.
     events inside one parallel wave.
 
   It fails until fault injection exists (Phase 6). (FR-ORC-012, CHK015)
-- [ ] T087 [US3] Run `./mvnw test` for T079–T086 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 6 checkpoint.
+- [X] T087 [US3] Run `./mvnw test` for T079–T086 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 6 checkpoint.
 
 ### Implementation
 
-- [ ] T088 [P] [US3] Implement `main/workflow/engine/FaultInjector.java` (reads `fault_plan_json`;
+- [X] T088 [P] [US3] Implement `main/workflow/engine/FaultInjector.java` (reads `fault_plan_json`;
   types `TRANSIENT|PERMANENT|TIMEOUT|DELAY|COMPENSATION_FAILURE`; fires after executor work and
   before the completion commit) and gate run creation on `workflow.fault-injection.enabled`.
   Traceability: per T079; FR-REL-011.
-- [ ] T089 [US3] Implement `main/workflow/engine/RetryTimeoutRunner.java` (`Future.get(timeout)` plus
+- [X] T089 [US3] Implement `main/workflow/engine/RetryTimeoutRunner.java` (`Future.get(timeout)` plus
   cancel; transient-only retry; 3 attempts; 100/200 ms backoff; events) and wire it into
   `WorkflowEngine.java`. The runner lives on the **coordinating side** (H1): it submits each attempt
   to the pool, waits with the timeout, and writes retry/timeout events itself. Each attempt gets a
   fresh **cancellation token** that is revoked on timeout; a late result from a revoked attempt is
   always discarded (H3).
   Traceability: per T080; FR-REL-001..004, PVT-001/002.
-- [ ] T090 [US3] Add the DOCS fallback template to `main/workflow/stages/DocsExecutor.java` per T081.
-- [ ] T091 [US3] Implement `main/workflow/engine/CompensationService.java`: an idempotent sweep via
+- [X] T090 [US3] Add the DOCS fallback template to `main/workflow/stages/DocsExecutor.java` per T081.
+- [X] T091 [US3] Implement `main/workflow/engine/CompensationService.java`: an idempotent sweep via
   `LinkService.deleteProbeLinks(runId)`, with events, and safe-stop on failure. Wire it to:
   - **before every TEST attempt**, including the first, so leftovers from a timed-out attempt are
     removed (H3);
@@ -728,18 +728,18 @@ quickstart recovery table behaves as specified.
   - terminate;
   - `FAILED`/`SAFE_STOPPED`.
   Traceability: per T082; FR-REL-006.
-- [ ] T092 [US3] Implement the safe-stop triggers and the recoverable flag in `WorkflowEngine.java`,
+- [X] T092 [US3] Implement the safe-stop triggers and the recoverable flag in `WorkflowEngine.java`,
   plus `POST /api/workflows/{id}/resume` (HUMAN) in `WorkflowController.java`.
   Traceability: per T083; FR-REL-007..010.
-- [ ] T093 [US3] Implement `main/workflow/engine/StartupRecovery.java`
+- [X] T093 [US3] Implement `main/workflow/engine/StartupRecovery.java`
   (`ApplicationReadyEvent`: inspect every non-terminal run. For a `RUNNING` run: roll back any
   `RUNNING` stage, run the idempotent compensation sweep, then `SAFE_STOPPED` (recoverable,
   `INTERRUPTED`). Leave `AWAITING_*` runs untouched. No automatic re-execution; CHK033).
-- [ ] T094 [US3] Emit incident events in `main/workflow/engine/WorkflowEngine.java`,
+- [X] T094 [US3] Emit incident events in `main/workflow/engine/WorkflowEngine.java`,
   `CompensationService.java` and `DecisionService.java` (`FAILURE_DETECTED`, `RECOVERY_*`) from the engine, the
   compensation service and resume per T085.
-- [ ] T095 [US3] Run `./mvnw verify`. All tests green (record red → green).
-- [ ] T096 [US3] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 6 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T095 [US3] Run `./mvnw verify`. All tests green (record red → green).
+- [X] T096 [US3] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 6 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `feat: add bounded recovery, compensation, safe-stop and
 resume`.

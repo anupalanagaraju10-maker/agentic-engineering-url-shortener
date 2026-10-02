@@ -30,7 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /**
  * T065: TEST runs the real acceptance probes of every task through {@link LinkService} (FR-ORC-014). Probe
- * links are tagged with the run id and removed before the stage ends; a failing probe is a PERMANENT
+ * links are tagged with the run id and removed on success (on failure the engine compensates); a failing probe is a PERMANENT
  * IMPLEMENTATION_DEFECT; a revoked attempt creates no probe link (H3).
  */
 @SpringBootTest
@@ -69,7 +69,7 @@ class TestStageExecutorTest {
     }
 
     @Test
-    void aFailingProbeIsAPermanentImplementationDefectAndProbesAreStillRemoved() {
+    void aFailingProbeIsAPermanentImplementationDefectAndLeavesProbesForCompensation() {
         doReturn("https://wrong.example.com/").when(links).redirect(anyString());
         StageContext context = context(Capability.CREATE_LINK, Capability.REDIRECT);
 
@@ -79,7 +79,9 @@ class TestStageExecutorTest {
         assertThat(result.failureClass()).isEqualTo(FailureClass.PERMANENT);
         assertThat(result.failureCode()).isEqualTo("IMPLEMENTATION_DEFECT");
         assertThat(result.failureReason()).contains("probe.redirect");
-        assertThat(links.countProbeLinks(context.runId())).isZero();
+        // Phase 6 (ADR-0005 §6): a failed attempt leaves its probe links to the engine's compensation sweep
+        assertThat(links.countProbeLinks(context.runId())).isPositive();
+        links.deleteProbeLinks(context.runId());
     }
 
     @Test

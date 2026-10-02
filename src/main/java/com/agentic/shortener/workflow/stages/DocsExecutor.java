@@ -96,6 +96,37 @@ public class DocsExecutor implements StageExecutor {
         return missing.isEmpty() ? Optional.empty() : Optional.of("required documentation sections missing: " + missing);
     }
 
+    @Override
+    public boolean supportsFallback() {
+        return true;
+    }
+
+    /**
+     * FALLBACK template (FR-REL-005, ADR-0005 §4): every required section, filled only from the persisted
+     * requirement, design and evidence identifiers, with no generated prose. Labelled FALLBACK.
+     */
+    @Override
+    public StageResult fallback(StageContext context) {
+        Map<String, Object> design = Outputs.of(context, Node.DESIGN);
+        Map<String, Object> evidence = Outputs.of(context, Node.IMPLEMENT);
+        String marker = "(fallback documentation: the detailed generator was unavailable)";
+        Map<String, String> sections = new LinkedHashMap<>();
+        sections.put("Overview", "Requirement: " + context.requirement() + "\n" + marker);
+        sections.put("Behavior", "Capabilities: " + Outputs.capabilities(context).stream().map(Enum::name).toList());
+        sections.put("API", bullets(design.get("interfaceChanges")));
+        sections.put("Data", bullets(design.get("dataChanges")));
+        sections.put("Implementation", "Revision: " + evidence.getOrDefault("revision", "not recorded"));
+        sections.put("Validation", bullets(design.get("testPlan")));
+        sections.put("Traceability", "Requirement IDs: " + Outputs.strings(design.get("requirementIds")));
+        sections.put("Limitations", "Detailed documentation was not generated; regenerate DOCS through rework.");
+        StringBuilder markdown = new StringBuilder("# Change documentation (fallback)\n");
+        sections.forEach((title, body) -> markdown.append("\n## ").append(title).append("\n\n").append(body).append('\n'));
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("sections", sections);
+        output.put("markdown", markdown.toString());
+        return StageResult.success(output, Provenance.FALLBACK);
+    }
+
     private static String bullets(Object values) {
         List<String> items = Outputs.strings(values);
         return items.isEmpty() ? "- none" : "- " + String.join("\n- ", items);

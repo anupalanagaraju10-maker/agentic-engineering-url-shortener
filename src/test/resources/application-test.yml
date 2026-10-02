@@ -4,4 +4,6 @@ spring:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
 
 workflow:
-  stage-timeout: 300ms
+  # Enforced from Phase 6. Generous so real executors never time out on a cold JVM; the reliability tests
+  # that exercise timeouts shorten it themselves (workflow.stage-timeout=300ms).
+  stage-timeout: 2s

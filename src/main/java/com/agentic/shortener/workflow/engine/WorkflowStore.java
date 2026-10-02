@@ -101,20 +101,28 @@ public class WorkflowStore {
 
     /** Creates the run, its 14 PENDING stage rows and the RUN_CREATED event in one transaction. */
     public UUID createRun(String requirement, Actor submittedBy, String correlationId) {
+        return createRun(requirement, submittedBy, correlationId, null);
+    }
+
+    /** {@code faultPlanJson} non-null marks an injected run (FR-REL-011, CHK038). */
+    public UUID createRun(String requirement, Actor submittedBy, String correlationId, String faultPlanJson) {
         UUID runId = UUID.randomUUID();
         OffsetDateTime now = now();
         tx.executeWithoutResult(status -> {
             jdbc.update("""
                     insert into workflow_run (id, correlation_id, original_requirement, current_requirement, status,
-                        plan_version, policy_version, created_at, updated_at, version)
-                    values (?, ?, ?, ?, 'RUNNING', 1, ?, ?, ?, 0)""",
+                        plan_version, policy_version, fault_plan_json, created_at, updated_at, version)
+                    values (?, ?, ?, ?, 'RUNNING', 1, ?, ?, ?, ?, 0)""",
                     runId, correlationId == null ? runId.toString() : correlationId, requirement, requirement,
-                    POLICY_VERSION, now, now);
+                    POLICY_VERSION, faultPlanJson, now, now);
             for (Node node : Node.values()) {
                 jdbc.update("insert into workflow_stage (run_id, node, status, attempts, plan_version) values (?, ?, 'PENDING', 0, 1)",
                         runId, node.name());
             }
-            audit.append(runId, AuditEventType.RUN_CREATED, null, submittedBy, Map.of("requirement", requirement), false);
+            Map<String, Object> created = new LinkedHashMap<>();
+            created.put("requirement", requirement);
+            created.put("faultInjected", faultPlanJson != null);
+            audit.append(runId, AuditEventType.RUN_CREATED, null, submittedBy, created, false);
         });
         return runId;
     }
@@ -157,6 +165,11 @@ public class WorkflowStore {
     /** Output and SUCCEEDED are committed together (the basis of attempt rollback, ADR-0005). */
     public void completeStage(UUID runId, Node node, Map<String, Object> output, Provenance provenance,
             Instant startedAt, Instant endedAt, String threadName) {
+        completeStage(runId, node, output, provenance, startedAt, endedAt, threadName, false);
+    }
+
+    public void completeStage(UUID runId, Node node, Map<String, Object> output, Provenance provenance,
+            Instant startedAt, Instant endedAt, String threadName, boolean injected) {
         locks.assertHeld(runId);
         tx.executeWithoutResult(status -> {
             jdbc.update("""
@@ -166,12 +179,17 @@ public class WorkflowStore {
                     toJson(output), provenance.name(), at(startedAt), at(endedAt), threadName, runId, node.name());
             audit.append(runId, AuditEventType.STAGE_SUCCEEDED, node, Actor.ENGINE,
                     Map.of("provenance", provenance.name(), "durationMs", Duration.between(startedAt, endedAt).toMillis(),
-                            "thread", threadName), false);
+                            "thread", threadName), injected);
         });
     }
 
     public void failStage(UUID runId, Node node, FailureClass failureClass, String code, String reason,
             Instant startedAt, Instant endedAt, String threadName) {
+        failStage(runId, node, failureClass, code, reason, startedAt, endedAt, threadName, false);
+    }
+
+    public void failStage(UUID runId, Node node, FailureClass failureClass, String code, String reason,
+            Instant startedAt, Instant endedAt, String threadName, boolean injected) {
         locks.assertHeld(runId);
         tx.executeWithoutResult(status -> {
             jdbc.update("""
@@ -181,7 +199,7 @@ public class WorkflowStore {
                     failureClass.name(), code, truncate(reason), at(startedAt), at(endedAt), threadName, runId,
                     node.name());
             audit.append(runId, AuditEventType.STAGE_FAILED, node, Actor.ENGINE,
-                    Map.of("failureClass", failureClass.name(), "code", code, "reason", String.valueOf(reason)), false);
+                    Map.of("failureClass", failureClass.name(), "code", code, "reason", String.valueOf(reason)), injected);
         });
     }
 
@@ -302,12 +320,13 @@ public class WorkflowStore {
      * IMPLEMENTATION_DEFECT after accepted evidence (CHK036): the failed stages stay FAILED, succeeded branches
      * are kept, and the run waits for a HUMAN rework or terminate decision.
      */
-    public void awaitRework(UUID runId, String reason, List<String> nodes) {
+    public void awaitRework(UUID runId, String reason, Map<Node, Integer> defectIncidents) {
         locks.assertHeld(runId);
         tx.executeWithoutResult(status -> {
             updateRun(runId, RunStatus.AWAITING_REWORK, "REWORK_OR_TERMINATE", reason, false);
-            audit.append(runId, AuditEventType.RECOVERY_STARTED, null, Actor.ENGINE,
-                    Map.of("mechanism", "REWORK", "cause", "IMPLEMENTATION_DEFECT", "nodes", nodes), false);
+            defectIncidents.forEach((node, incident) -> audit.append(runId, AuditEventType.RECOVERY_STARTED, node,
+                    Actor.ENGINE, incidentPayload(incident, node, "mechanism", "REWORK", "cause", "IMPLEMENTATION_DEFECT"),
+                    false));
         });
     }
 
@@ -401,6 +420,226 @@ public class WorkflowStore {
             resolveBlockedInTransaction(runId, Node.IMPLEMENT, output, Provenance.EXTERNAL);
             return decision;
         });
+    }
+
+    // ---------------------------------------------------------------- reliability (ADR-0005)
+
+    public int attempts(UUID runId, Node node) {
+        Integer attempts = jdbc.queryForObject("select attempts from workflow_stage where run_id = ? and node = ?",
+                Integer.class, runId, node.name());
+        return attempts == null ? 0 : attempts;
+    }
+
+    public List<UUID> runIdsWithStatus(RunStatus status) {
+        return jdbc.queryForList("select id from workflow_run where status = ?", UUID.class, status.name());
+    }
+
+    /**
+     * Attempt rollback (ADR-0005 §5): the failed or timed-out attempt commits nothing; the stage returns to
+     * PENDING with no output and keeps its attempt count. Records STAGE_FAILED or STAGE_TIMED_OUT, then
+     * ATTEMPT_ROLLED_BACK.
+     */
+    public void rollbackAttempt(UUID runId, Node node, int attempt, FailureClass failureClass, String code,
+            String reason, boolean timedOut, Instant startedAt, Instant endedAt, String threadName, boolean injected) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            jdbc.update("""
+                    update workflow_stage set status = 'PENDING', output_json = null, provenance = null, started_at = ?,
+                        ended_at = ?, thread_name = ?, failure_class = ?, failure_code = ?, failure_reason = ?
+                    where run_id = ? and node = ? and status = 'RUNNING'""",
+                    at(startedAt), at(endedAt), threadName, failureClass.name(), code, truncate(reason), runId,
+                    node.name());
+            Map<String, Object> failure = new LinkedHashMap<>();
+            failure.put("attempt", attempt);
+            failure.put("failureClass", failureClass.name());
+            failure.put("code", code);
+            failure.put("reason", String.valueOf(reason));
+            audit.append(runId, timedOut ? AuditEventType.STAGE_TIMED_OUT : AuditEventType.STAGE_FAILED, node,
+                    Actor.ENGINE, failure, injected);
+            audit.append(runId, AuditEventType.ATTEMPT_ROLLED_BACK, node, Actor.ENGINE,
+                    Map.of("attempt", attempt, "restoredStatus", "PENDING"), injected);
+        });
+    }
+
+    /** At startup: a stage left RUNNING by a crash is rolled back the same way (cause INTERRUPTED, CHK033). */
+    public void rollbackInterrupted(UUID runId, Node node) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            jdbc.update("""
+                    update workflow_stage set status = 'PENDING', output_json = null, provenance = null,
+                        failure_class = 'TRANSIENT', failure_code = 'INTERRUPTED', failure_reason = 'process restarted'
+                    where run_id = ? and node = ? and status = 'RUNNING'""", runId, node.name());
+            audit.append(runId, AuditEventType.ATTEMPT_ROLLED_BACK, node, Actor.ENGINE,
+                    Map.of("restoredStatus", "PENDING", "cause", "INTERRUPTED"), false);
+        });
+    }
+
+    public void retryScheduled(UUID runId, Node node, int nextAttempt, long backoffMs, int incidentId, boolean injected) {
+        appendLocked(runId, AuditEventType.RETRY_SCHEDULED, node,
+                incidentPayload(incidentId, node, "nextAttempt", nextAttempt, "backoffMs", backoffMs), injected);
+    }
+
+    public void retryExhausted(UUID runId, Node node, int attempts, int incidentId, boolean injected) {
+        appendLocked(runId, AuditEventType.RETRY_EXHAUSTED, node, incidentPayload(incidentId, node, "attempts", attempts),
+                injected);
+    }
+
+    public void fallbackUsed(UUID runId, Node node, int incidentId, boolean injected) {
+        appendLocked(runId, AuditEventType.FALLBACK_USED, node,
+                incidentPayload(incidentId, node, "provenance", Provenance.FALLBACK.name()), injected);
+    }
+
+    /** Opens a recovery incident; its audit seq is the incident id (ADR-0005 §11). */
+    public int failureDetected(UUID runId, Node node, FailureClass failureClass, String code, boolean injected) {
+        locks.assertHeld(runId);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("node", node == null ? null : node.name());
+        payload.put("failureClass", failureClass == null ? null : failureClass.name());
+        payload.put("code", code);
+        Integer seq = tx.execute(status -> audit.append(runId, AuditEventType.FAILURE_DETECTED, node, Actor.ENGINE,
+                payload, injected).getSeq());
+        return seq == null ? 0 : seq;
+    }
+
+    public void recoveryStarted(UUID runId, Node node, int incidentId, String mechanism, boolean injected) {
+        appendLocked(runId, AuditEventType.RECOVERY_STARTED, node, incidentPayload(incidentId, node, "mechanism", mechanism),
+                injected);
+    }
+
+    /** Closes an incident as recovered, with its duration and recovery mechanism (the MTTR input). */
+    public void recoveryCompleted(UUID runId, Node node, int incidentId, boolean injected) {
+        appendLocked(runId, AuditEventType.RECOVERY_COMPLETED, node, incidentPayload(incidentId, node,
+                "mechanism", lastMechanism(runId, incidentId), "durationMs", durationSince(runId, incidentId)), injected);
+    }
+
+    /** Closes every open incident as unrecovered (run FAILED or non-recoverable SAFE_STOPPED). */
+    public void recoveryFailedForOpenIncidents(UUID runId, String outcome) {
+        for (Map.Entry<Integer, Node> incident : openIncidents(runId).entrySet()) {
+            appendLocked(runId, AuditEventType.RECOVERY_FAILED, incident.getValue(), incidentPayload(incident.getKey(),
+                    incident.getValue(), "outcome", outcome, "durationMs", durationSince(runId, incident.getKey())), false);
+        }
+    }
+
+    /** Open incidents: FAILURE_DETECTED events not yet closed by RECOVERY_COMPLETED or RECOVERY_FAILED. */
+    public Map<Integer, Node> openIncidents(UUID runId) {
+        Map<Integer, Node> open = new LinkedHashMap<>();
+        for (Map<String, Object> row : jdbc.queryForList("""
+                select seq, type, node, payload_json from audit_event
+                where run_id = ? and type in ('FAILURE_DETECTED', 'RECOVERY_COMPLETED', 'RECOVERY_FAILED')
+                order by seq""", runId)) {
+            int seq = ((Number) row.get("SEQ")).intValue();
+            if ("FAILURE_DETECTED".equals(row.get("TYPE"))) {
+                Object node = row.get("NODE");
+                open.put(seq, node == null ? null : Node.valueOf(node.toString()));
+            } else {
+                Object incident = fromJson(clob(row.get("PAYLOAD_JSON"))).get("incidentId");
+                if (incident instanceof Number n) {
+                    open.remove(n.intValue());
+                }
+            }
+        }
+        return open;
+    }
+
+    public Integer openIncidentFor(UUID runId, Node node) {
+        return openIncidents(runId).entrySet().stream().filter(e -> e.getValue() == node).map(Map.Entry::getKey)
+                .reduce((a, b) -> b).orElse(null);
+    }
+
+    public void compensationStarted(UUID runId, String trigger, Integer incidentId, boolean injected) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("trigger", trigger);
+            payload.put("incidentId", incidentId);
+            audit.append(runId, AuditEventType.COMPENSATION_STARTED, Node.TEST, Actor.ENGINE, payload, injected);
+            if (incidentId != null) {
+                audit.append(runId, AuditEventType.RECOVERY_STARTED, Node.TEST, Actor.ENGINE,
+                        incidentPayload(incidentId, Node.TEST, "mechanism", "COMPENSATION"), injected);
+            }
+        });
+    }
+
+    public void compensationCompleted(UUID runId, int deleted, Integer incidentId, boolean injected) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("deleted", deleted);
+        payload.put("incidentId", incidentId);
+        appendLocked(runId, AuditEventType.COMPENSATION_COMPLETED, Node.TEST, payload, injected);
+    }
+
+    public void compensationFailed(UUID runId, String reason, Integer incidentId, boolean injected) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("reason", reason);
+        payload.put("incidentId", incidentId);
+        appendLocked(runId, AuditEventType.COMPENSATION_FAILED, Node.TEST, payload, injected);
+    }
+
+    /**
+     * RESUME by a HUMAN (FR-REL-009): RESUME decision, RUN_RESUMED and RECOVERY_STARTED(RESUME) for every open
+     * incident; the run is RUNNING again. Succeeded stages are untouched; rolled-back stages are PENDING.
+     */
+    public void resumeRun(UUID runId, Actor actor, String reason, int planVersion) {
+        locks.assertHeld(runId);
+        Map<Integer, Node> open = openIncidents(runId);
+        tx.executeWithoutResult(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.RESUME, null, actor.actorType(),
+                    actor.actorIdentity(), reason, planVersion, null, toJson(Map.of()), Instant.now()));
+            jdbc.update("update workflow_stage set status = 'PENDING' where run_id = ? and status = 'FAILED'", runId);
+            updateRun(runId, RunStatus.RUNNING, null, null, false);
+            jdbc.update("update workflow_run set recoverable = null where id = ?", runId);
+            audit.append(runId, AuditEventType.RUN_RESUMED, null, actor,
+                    Map.of("decisionId", decision.getId(), "reason", reason), false);
+            open.forEach((incident, node) -> audit.append(runId, AuditEventType.RECOVERY_STARTED, node, actor,
+                    incidentPayload(incident, node, "mechanism", "RESUME"), false));
+        });
+        // an incident without a stage (an interrupted orchestration boundary) is recovered by the resume itself
+        open.entrySet().stream().filter(e -> e.getValue() == null)
+                .forEach(e -> recoveryCompleted(runId, null, e.getKey(), false));
+    }
+
+    private void appendLocked(UUID runId, AuditEventType type, Node node, Map<String, Object> payload, boolean injected) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> audit.append(runId, type, node, Actor.ENGINE, payload, injected));
+    }
+
+    private static Map<String, Object> incidentPayload(Integer incidentId, Node node, Object... keyValues) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("incidentId", incidentId);
+        payload.put("node", node == null ? null : node.name());
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            payload.put(String.valueOf(keyValues[i]), keyValues[i + 1]);
+        }
+        return payload;
+    }
+
+    private long durationSince(UUID runId, int incidentId) {
+        List<OffsetDateTime> opened = jdbc.queryForList(
+                "select created_at from audit_event where run_id = ? and seq = ?", OffsetDateTime.class, runId, incidentId);
+        return opened.isEmpty() ? 0 : Math.max(0, Duration.between(opened.get(0).toInstant(), Instant.now()).toMillis());
+    }
+
+    private String lastMechanism(UUID runId, int incidentId) {
+        String mechanism = null;
+        for (Map<String, Object> row : jdbc.queryForList(
+                "select payload_json from audit_event where run_id = ? and type = 'RECOVERY_STARTED' order by seq", runId)) {
+            Map<String, Object> p = fromJson(clob(row.get("PAYLOAD_JSON")));
+            if (p.get("incidentId") instanceof Number n && n.intValue() == incidentId
+                    && !"COMPENSATION".equals(p.get("mechanism"))) {
+                mechanism = String.valueOf(p.get("mechanism"));
+            }
+        }
+        return mechanism;
+    }
+
+    private static String clob(Object value) {
+        if (value instanceof java.sql.Clob c) {
+            try {
+                return c.getSubString(1, (int) c.length());
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return value == null ? "{}" : value.toString();
     }
 
     // ---------------------------------------------------------------- helpers

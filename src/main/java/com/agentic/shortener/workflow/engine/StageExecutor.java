@@ -22,4 +22,14 @@ public interface StageExecutor {
     default Optional<String> checkExit(Map<String, Object> output) {
         return Optional.empty();
     }
+
+    /** Whether a degraded fallback exists once retries are exhausted (ADR-0005 §4: DOCS only). */
+    default boolean supportsFallback() {
+        return false;
+    }
+
+    /** The fallback result, provenance FALLBACK; called only when {@link #supportsFallback()} is true. */
+    default StageResult fallback(StageContext context) {
+        throw new UnsupportedOperationException(node() + " has no fallback");
+    }
 }
