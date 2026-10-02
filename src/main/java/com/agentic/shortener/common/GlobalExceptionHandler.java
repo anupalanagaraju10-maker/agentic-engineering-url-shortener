@@ -2,11 +2,15 @@ package com.agentic.shortener.common;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.NonTransientDataAccessResourceException;
+import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -25,6 +29,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleApiException(ApiException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
         problem.setProperty("category", ex.getCategory().name());
+        return problem;
+    }
+
+    /**
+     * Storage unavailable ⇒ 503, never 404/410 (FR-URL-013). Only resource failures are mapped; integrity and
+     * concurrency errors remain internal errors.
+     */
+    @ExceptionHandler({ DataAccessResourceFailureException.class, TransientDataAccessResourceException.class,
+            NonTransientDataAccessResourceException.class, CannotCreateTransactionException.class })
+    public ProblemDetail handleStorageUnavailable(Exception ex) {
+        log.error("Storage unavailable: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "Storage is unavailable");
+        problem.setProperty("category", ErrorCategory.STORAGE_UNAVAILABLE.name());
         return problem;
     }
 

@@ -10,7 +10,9 @@ import org.springframework.stereotype.Component;
 /**
  * Static registry of the URL-shortener capabilities, exactly as research R5 (vocabulary) and R6
  * (requirement IDs and recorded behavior statements), plus the design data used by DESIGN and
- * IMPACT_ANALYSIS. An entry moves from PLANNED to IMPLEMENTED in the same change that implements it.
+ * IMPACT_ANALYSIS. An entry moves from PLANNED to IMPLEMENTED in the same change that implements it:
+ * CREATE_LINK, REDIRECT, ANALYTICS and IDEMPOTENCY by Phase 4 (SCN-A, migration V2); EXPIRATION is still
+ * PLANNED (SCN-B).
  */
 @Component
 public class CapabilityRegistry {
@@ -23,21 +25,30 @@ public class CapabilityRegistry {
             Capability.IDEMPOTENCY, List.of("idempotency", "idempotent", "duplicate request", "duplicate requests"),
             Capability.EXPIRATION, List.of("expire", "expires", "expired", "expiration", "expiry")));
 
+    /** Capabilities implemented in the codebase today. */
+    private static final Set<Capability> IMPLEMENTED = EnumSet.of(Capability.CREATE_LINK, Capability.REDIRECT,
+            Capability.ANALYTICS, Capability.IDEMPOTENCY);
+
+    private static final String LINK = "com.agentic.shortener.link.";
+    private static final String LINK_TESTS = "src/test/java/com/agentic/shortener/link/";
+
     private final List<CapabilityEntry> entries;
 
+    /** The registry of the real codebase (the application bean). */
     public CapabilityRegistry() {
-        this(EnumSet.noneOf(Capability.class));
+        this(IMPLEMENTED);
     }
 
     private CapabilityRegistry(Set<Capability> implemented) {
         this.entries = defaults().stream()
-                .map(e -> implemented.contains(e.capability()) ? e.withStatus(CapabilityStatus.IMPLEMENTED) : e)
+                .map(e -> e.withStatus(implemented.contains(e.capability()) ? CapabilityStatus.IMPLEMENTED
+                        : CapabilityStatus.PLANNED))
                 .toList();
     }
 
     /**
-     * A registry where the given capabilities are marked IMPLEMENTED. Used by executor tests to reproduce a
-     * later codebase state; the application bean always reflects the real codebase.
+     * A registry where exactly the given capabilities are IMPLEMENTED and all others PLANNED. Used by tests to
+     * reproduce an earlier or later codebase state; the application bean always reflects the real codebase.
      */
     public static CapabilityRegistry withImplemented(Capability... implemented) {
         return new CapabilityRegistry(implemented.length == 0 ? EnumSet.noneOf(Capability.class)
@@ -58,7 +69,7 @@ public class CapabilityRegistry {
 
     private static List<CapabilityEntry> defaults() {
         return List.of(
-                planned(Capability.CREATE_LINK,
+                define(Capability.CREATE_LINK,
                         List.of("FR-URL-001", "FR-URL-002", "FR-URL-003", "FR-URL-004", "FR-URL-005", "FR-URL-013",
                                 "FR-URL-016"),
                         List.of(
@@ -73,8 +84,12 @@ public class CapabilityRegistry {
                                 "LinkRepository"),
                         List.of("POST /api/links"),
                         List.of("link table (V2__links.sql)"),
-                        List.of("UrlValidatorTest", "ShortCodeGeneratorTest", "LinkServiceCollisionTest", "LinkApiTest")),
-                planned(Capability.REDIRECT,
+                        List.of("UrlValidatorTest", "ShortCodeGeneratorTest", "LinkServiceCollisionTest", "LinkApiTest"),
+                        classes("LinkController", "LinkService", "UrlValidator", "ShortCodeGenerator",
+                                "SecureRandomShortCodeGenerator", "Link", "LinkRepository"),
+                        tests("UrlValidatorTest", "ShortCodeGeneratorTest", "LinkServiceCollisionTest", "LinkApiTest",
+                                "LinkStorageFailureTest")),
+                define(Capability.REDIRECT,
                         List.of("FR-URL-006", "FR-URL-007", "FR-URL-013", "FR-URL-017"),
                         List.of(
                                 s("B1", "an active link redirects to its original address"),
@@ -85,8 +100,10 @@ public class CapabilityRegistry {
                         List.of("RedirectController", "LinkService", "LinkRepository"),
                         List.of("GET /r/{code}"),
                         List.of("link table (read)"),
-                        List.of("LinkApiTest", "LinkStorageFailureTest")),
-                planned(Capability.ANALYTICS,
+                        List.of("LinkApiTest", "LinkStorageFailureTest"),
+                        classes("RedirectController", "LinkService", "LinkRepository"),
+                        tests("LinkApiTest", "LinkStorageFailureTest")),
+                define(Capability.ANALYTICS,
                         List.of("FR-URL-010", "FR-URL-012"),
                         List.of(
                                 s("B1", "each successful redirect increments the link's count and sets its last-redirect time, readable by clients"),
@@ -96,8 +113,10 @@ public class CapabilityRegistry {
                         List.of("LinkService", "LinkRepository", "LinkController"),
                         List.of("GET /api/links/{code}"),
                         List.of("link.redirect_count, link.last_redirect_at"),
-                        List.of("LinkApiTest", "LinkConcurrencyTest")),
-                planned(Capability.IDEMPOTENCY,
+                        List.of("LinkApiTest", "LinkConcurrencyTest"),
+                        classes("LinkService", "LinkRepository", "LinkController"),
+                        tests("LinkApiTest", "LinkConcurrencyTest")),
+                define(Capability.IDEMPOTENCY,
                         List.of("FR-URL-011"),
                         List.of(
                                 s("B1", "a create request may carry an idempotency key"),
@@ -108,8 +127,10 @@ public class CapabilityRegistry {
                         List.of("LinkService", "IdempotencyRecord", "IdempotencyRepository", "LinkController"),
                         List.of("POST /api/links (Idempotency-Key header)"),
                         List.of("idempotency_record table"),
-                        List.of("LinkApiTest")),
-                planned(Capability.EXPIRATION,
+                        List.of("LinkApiTest"),
+                        classes("LinkService", "IdempotencyRecord", "IdempotencyRepository", "LinkController"),
+                        tests("LinkApiTest")),
+                define(Capability.EXPIRATION,
                         List.of("FR-URL-008", "FR-URL-009"),
                         List.of(
                                 s("B1", "a client may optionally supply an absolute expiration time per link"),
@@ -120,14 +141,27 @@ public class CapabilityRegistry {
                         List.of("Link", "LinkService", "LinkController", "RedirectController"),
                         List.of("POST /api/links (expiresAt)", "GET /r/{code} (410 Gone)"),
                         List.of("link.expires_at (V3__link_expiration.sql)"),
-                        List.of("LinkExpirationTest")));
+                        List.of("LinkExpirationTest"),
+                        List.of(),
+                        List.of()));
     }
 
-    private static CapabilityEntry planned(Capability capability, List<String> requirementIds,
+    /** Status is applied by the constructor; component classes and test files are empty until implemented. */
+    private static CapabilityEntry define(Capability capability, List<String> requirementIds,
             List<BehaviorStatement> statements, List<String> probeIds, List<String> designComponents,
-            List<String> interfaces, List<String> dataChanges, List<String> plannedTests) {
+            List<String> interfaces, List<String> dataChanges, List<String> plannedTests, List<String> componentClasses,
+            List<String> testFiles) {
         return new CapabilityEntry(capability, CapabilityStatus.PLANNED, VOCABULARY.get(capability), requirementIds,
-                statements, probeIds, designComponents, interfaces, dataChanges, plannedTests, List.of(), List.of());
+                statements, probeIds, designComponents, interfaces, dataChanges, plannedTests, componentClasses,
+                testFiles);
+    }
+
+    private static List<String> classes(String... simpleNames) {
+        return java.util.Arrays.stream(simpleNames).map(n -> LINK + n).toList();
+    }
+
+    private static List<String> tests(String... simpleNames) {
+        return java.util.Arrays.stream(simpleNames).map(n -> LINK_TESTS + n + ".java").toList();
     }
 
     private static BehaviorStatement s(String code, String text) {

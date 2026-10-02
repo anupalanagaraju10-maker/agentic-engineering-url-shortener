@@ -461,7 +461,7 @@ increments; unknown ⇒ 404; unsafe URL ⇒ 400; idempotency 201/200/409; 50 + 5
 
 ### Tests first
 
-- [ ] T050 [P] [US2] Write `test/link/UrlValidatorTest.java` (parameterized):
+- [X] T050 [P] [US2] Write `test/link/UrlValidatorTest.java` (parameterized):
   - accepts absolute `http`/`https` with a host;
   - rejects `javascript:`, `file:`, `data:`, other schemes, missing host, and length > 2,048;
   - rejects `localhost`/`*.localhost` and literals in `0.0.0.0/8`, `127/8`, `10/8`, `172.16/12`,
@@ -470,10 +470,10 @@ increments; unknown ⇒ 404; unsafe URL ⇒ 400; idempotency 201/200/409; 50 + 5
   - a hostname is never resolved (no DNS).
 
   (FR-URL-002/003/016, PVT-007, SC-008, NFR-001)
-- [ ] T051 [P] [US2] Write `test/link/ShortCodeGeneratorTest.java` (7 Base62 characters) and
+- [X] T051 [P] [US2] Write `test/link/ShortCodeGeneratorTest.java` (7 Base62 characters) and
   `test/link/LinkServiceCollisionTest.java`. Using a stub generator: a collision regenerates; 5
   collisions ⇒ `CODE_SPACE_EXHAUSTED` and no link (FR-URL-004/005, PVT-006).
-- [ ] T052 [P] [US2] Write `test/link/LinkApiTest.java` (MockMvc):
+- [X] T052 [P] [US2] Write `test/link/LinkApiTest.java` (MockMvc):
   - `POST /api/links` ⇒ 201 `Link`;
   - `GET /r/{code}` ⇒ 302 `Location` + `Cache-Control: no-store`, with `redirectCount` +1 and
     `lastRedirectAt` set;
@@ -483,19 +483,19 @@ increments; unknown ⇒ 404; unsafe URL ⇒ 400; idempotency 201/200/409; 50 + 5
     ⇒ new link.
 
   (FR-URL-001, 006, 007, 010, 011, 015)
-- [ ] T053 [P] [US2] Write `test/link/LinkStorageFailureTest.java` (mocked repository):
+- [X] T053 [P] [US2] Write `test/link/LinkStorageFailureTest.java` (mocked repository):
   - create and redirect ⇒ 503 `STORAGE_UNAVAILABLE`, never 404/410;
   - an analytics-update failure still redirects 302 and is logged;
   - health is `DOWN` when the datasource fails.
 
   (FR-URL-013, 014, 017)
-- [ ] T054 [P] [US2] Write `test/link/LinkConcurrencyTest.java`: 50 concurrent creates ⇒ 50 distinct
+- [X] T054 [P] [US2] Write `test/link/LinkConcurrencyTest.java`: 50 concurrent creates ⇒ 50 distinct
   codes; 50 concurrent redirects of one link ⇒ `redirectCount = 50` (FR-URL-012, PVT-008, SC-009).
-- [ ] T055 [US2] Run `./mvnw test` for T050–T054 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 4 checkpoint.
+- [X] T055 [US2] Run `./mvnw test` for T050–T054 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 4 checkpoint.
 
 ### Implementation
 
-- [ ] T056 [US2] Create `src/main/resources/db/migration/V2__links.sql`:
+- [X] T056 [US2] Create `src/main/resources/db/migration/V2__links.sql`:
   - `link`:
     - `id` BIGINT identity PK;
     - `code` VARCHAR(16) NOT NULL UNIQUE;
@@ -511,16 +511,16 @@ increments; unknown ⇒ 404; unsafe URL ⇒ 400; idempotency 201/200/409; 50 + 5
     - `link_id` BIGINT FK → `link.id`;
     - `created_at` NOT NULL.
   Traceability: FR-URL-001/004/010/011, ADR-0002.
-- [ ] T057 [P] [US2] Create `main/link/Link.java`, `IdempotencyRecord.java`, `LinkRepository.java`
+- [X] T057 [P] [US2] Create `main/link/Link.java`, `IdempotencyRecord.java`, `LinkRepository.java`
   (atomic `@Modifying` query `UPDATE link SET redirect_count = redirect_count + 1, last_redirect_at
   = :now WHERE id = :id`; `deleteByProbeRunId`) and `IdempotencyRepository.java`.
   Traceability: per T052/T054; FR-URL-010/011/012.
-- [ ] T058 [P] [US2] Implement `main/link/UrlValidator.java` per T050, using `java.net.URI` and
+- [X] T058 [P] [US2] Implement `main/link/UrlValidator.java` per T050, using `java.net.URI` and
   literal-only IP parsing.
-- [ ] T059 [P] [US2] Implement `main/link/ShortCodeGenerator.java` (interface) and
+- [X] T059 [P] [US2] Implement `main/link/ShortCodeGenerator.java` (interface) and
   `SecureRandomShortCodeGenerator.java` (7-char Base62).
   Traceability: per T051; FR-URL-004, PVT-006.
-- [ ] T060 [US2] Implement `main/link/LinkService.java`:
+- [X] T060 [US2] Implement `main/link/LinkService.java`:
   - create with idempotency (SHA-256 fingerprint of the canonical `url`; key row + link in one
     transaction; unique-key race resolved by re-read);
   - collision retry ≤ 5;
@@ -528,17 +528,17 @@ increments; unknown ⇒ 404; unsafe URL ⇒ 400; idempotency 201/200/409; 50 + 5
   - record redirect (analytics failure logged, redirect still allowed);
   - `createProbeLink(url, runId)`, `deleteProbeLinks(runId)`.
   Traceability: per T050–T054; FR-URL-001..013, FR-URL-017.
-- [ ] T061 [US2] Implement `main/link/LinkController.java` (`POST /api/links`,
+- [X] T061 [US2] Implement `main/link/LinkController.java` (`POST /api/links`,
   `GET /api/links/{code}`) and `main/link/RedirectController.java` (`GET /r/{code}` ⇒ 302,
   `Cache-Control: no-store`). Map data-access failures to 503 in `GlobalExceptionHandler`.
   Traceability: per T052/T053; FR-URL-006/007/013/015.
-- [ ] T062 [US2] Update `main/workflow/rules/CapabilityRegistry.java`: CREATE_LINK, REDIRECT,
+- [X] T062 [US2] Update `main/workflow/rules/CapabilityRegistry.java`: CREATE_LINK, REDIRECT,
   ANALYTICS and IDEMPOTENCY become `IMPLEMENTED`, with real component classes, endpoints, migration
   `V2__links.sql`, test classes and acceptance probes. EXPIRATION stays `PLANNED`.
   `CapabilityRegistryTest` passes.
   Traceability: per T017; research R6.
-- [ ] T063 [US2] Run `./mvnw verify`. All tests green, including the boundary test (record red → green).
-- [ ] T064 [US2] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 4 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T063 [US2] Run `./mvnw verify`. All tests green, including the boundary test (record red → green).
+- [X] T064 [US2] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 4 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `feat: implement core URL shortener (SCN-A implementation)`.
 Record the commit id. The live SCN-A run is still waiting.

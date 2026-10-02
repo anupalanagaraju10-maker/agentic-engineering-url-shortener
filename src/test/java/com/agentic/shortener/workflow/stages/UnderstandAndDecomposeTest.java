@@ -32,7 +32,7 @@ class UnderstandAndDecomposeTest {
 
     @Test
     void normalizesAndMapsCapabilities() {
-        Map<String, Object> out = understand(SCN_A, new CapabilityRegistry());
+        Map<String, Object> out = understand(SCN_A, CapabilityRegistry.withImplemented());
         assertThat(out.get("normalized")).isEqualTo(AmbiguityRules.normalize(SCN_A));
         assertThat((List<Object>) out.get("capabilities")).containsExactly("CREATE_LINK", "REDIRECT", "ANALYTICS");
         assertThat((List<Object>) out.get("findings")).isEmpty();
@@ -40,7 +40,7 @@ class UnderstandAndDecomposeTest {
 
     @Test
     void changeTypeFollowsResearchR6() {
-        CapabilityRegistry allPlanned = new CapabilityRegistry();
+        CapabilityRegistry allPlanned = CapabilityRegistry.withImplemented();
         assertThat(understand(SCN_A, allPlanned).get("changeType")).isEqualTo("GREENFIELD");
         assertThat(understand(SCN_B, allPlanned).get("changeType")).isEqualTo("BROWNFIELD");
         assertThat(understand(SCN_C_CLARIFIED, allPlanned).get("changeType")).isEqualTo("BROWNFIELD");
@@ -53,13 +53,13 @@ class UnderstandAndDecomposeTest {
 
     @Test
     void ambiguityFindingsAreReported() {
-        Map<String, Object> out = understand("Make links expire.", new CapabilityRegistry());
+        Map<String, Object> out = understand("Make links expire.", CapabilityRegistry.withImplemented());
         assertThat((List<Object>) out.get("findings")).hasSize(2);
     }
 
     @Test
     void decomposeProducesTasksWithAcceptanceChecksAndRequirementIds() {
-        CapabilityRegistry registry = new CapabilityRegistry();
+        CapabilityRegistry registry = CapabilityRegistry.withImplemented();
         Map<String, Object> understood = understand(SCN_A, registry);
 
         Map<String, Object> out = outputOf(new DecomposeExecutor(registry)
@@ -80,7 +80,7 @@ class UnderstandAndDecomposeTest {
 
     @Test
     void unknownCapabilityIsPermanentInvalidInput() {
-        CapabilityRegistry registry = new CapabilityRegistry();
+        CapabilityRegistry registry = CapabilityRegistry.withImplemented();
         String requirement = "Return a greeting to every caller.";
         Map<String, Object> understood = understand(requirement, registry);
 

@@ -36,6 +36,16 @@ class WorkflowApiTest {
     }
 
     @Test
+    void scnARequirementAfterPhase4IsAlreadyImplemented() throws Exception {
+        // T062: CREATE_LINK, REDIRECT and ANALYTICS are IMPLEMENTED in the real registry, so a new run of the
+        // SCN-A text no longer requires implementation (research R6); a no-change record would be accepted.
+        UUID runId = api.createRun(SCN_A);
+        List<Object> required = JsonPath.read(api.runJson(runId), "$.stages[?(@.node == 'DESIGN')].output.implementationRequired");
+        assertThat(required).containsExactly(false);
+        assertThat(JsonPath.<String>read(api.runJson(runId), "$.changeType")).isEqualTo("GREENFIELD");
+    }
+
+    @Test
     void createReturns201RunAndHonoursCorrelationId() throws Exception {
         mvc.perform(post("/api/workflows").contentType(MediaType.APPLICATION_JSON).header("X-Correlation-Id", "corr-42")
                         .content("{\"requirement\":\"" + SCN_A + "\",\"actorType\":\"HUMAN\",\"actorIdentity\":\"candidate\"}"))

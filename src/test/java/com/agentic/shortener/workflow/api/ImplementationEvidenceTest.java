@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.agentic.shortener.workflow.engine.DecisionType;
 import com.agentic.shortener.workflow.persistence.Decision;
 import com.agentic.shortener.workflow.persistence.DecisionRepository;
+import com.agentic.shortener.workflow.rules.CapabilityRegistry;
 import com.jayway.jsonpath.JsonPath;
 import java.util.HashMap;
 import java.util.List;
@@ -18,14 +19,32 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** T036: implementation evidence for the EXTERNAL_ACTION (ADR-0004 §3, CHK004, CHK024, FR-ORC-014). */
+/**
+ * T036: implementation evidence for the EXTERNAL_ACTION (ADR-0004 §3, CHK004, CHK024, FR-ORC-014). Runs are
+ * designed against the codebase state at SCN-A design time (every capability PLANNED, so the design requires
+ * implementation), the same state the live SCN-A run was designed in.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(ImplementationEvidenceTest.CodebaseBeforeScnA.class)
 class ImplementationEvidenceTest {
+
+    @TestConfiguration
+    static class CodebaseBeforeScnA {
+        @Bean
+        @Primary
+        CapabilityRegistry registryBeforeScnA() {
+            return CapabilityRegistry.withImplemented();
+        }
+    }
 
     @Autowired
     private MockMvc mvc;

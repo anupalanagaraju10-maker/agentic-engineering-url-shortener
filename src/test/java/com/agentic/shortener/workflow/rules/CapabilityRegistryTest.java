@@ -21,8 +21,32 @@ class CapabilityRegistryTest {
     }
 
     @Test
-    void allCapabilitiesStartPlanned() {
-        assertThat(registry.entries()).allSatisfy(e -> assertThat(e.status()).isEqualTo(CapabilityStatus.PLANNED));
+    void coreCapabilitiesAreImplementedAndExpirationIsStillPlanned() {
+        // T062: Phase 4 (SCN-A implementation) implemented the core shortener; expiration waits for SCN-B.
+        assertThat(registry.entries()).extracting(CapabilityEntry::capability, CapabilityEntry::status).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(Capability.CREATE_LINK, CapabilityStatus.IMPLEMENTED),
+                org.assertj.core.groups.Tuple.tuple(Capability.REDIRECT, CapabilityStatus.IMPLEMENTED),
+                org.assertj.core.groups.Tuple.tuple(Capability.ANALYTICS, CapabilityStatus.IMPLEMENTED),
+                org.assertj.core.groups.Tuple.tuple(Capability.IDEMPOTENCY, CapabilityStatus.IMPLEMENTED),
+                org.assertj.core.groups.Tuple.tuple(Capability.EXPIRATION, CapabilityStatus.PLANNED));
+    }
+
+    @Test
+    void implementedEntriesCiteMigrationV2AndTheirTests() {
+        assertThat(registry.entry(Capability.CREATE_LINK).componentClasses())
+                .contains("com.agentic.shortener.link.LinkService", "com.agentic.shortener.link.UrlValidator");
+        assertThat(registry.entry(Capability.IDEMPOTENCY).testFiles())
+                .contains("src/test/java/com/agentic/shortener/link/LinkApiTest.java");
+        assertThat(Files.exists(Path.of("src/main/resources/db/migration/V2__links.sql"))).isTrue();
+        assertThat(registry.entry(Capability.EXPIRATION).componentClasses()).isEmpty();
+    }
+
+    @Test
+    void fixtureRegistriesCanReproduceEarlierCodebaseStates() {
+        assertThat(CapabilityRegistry.withImplemented().entries())
+                .allSatisfy(e -> assertThat(e.status()).isEqualTo(CapabilityStatus.PLANNED));
+        assertThat(CapabilityRegistry.withImplemented(Capability.ANALYTICS).entry(Capability.CREATE_LINK).status())
+                .isEqualTo(CapabilityStatus.PLANNED);
     }
 
     @Test

@@ -56,7 +56,7 @@ class ImpactAnalysisAndDesignTest {
 
     @Test
     void designListsEveryRequiredElement() {
-        Map<String, Object> design = design(SCN_A, new CapabilityRegistry(), false);
+        Map<String, Object> design = design(SCN_A, CapabilityRegistry.withImplemented(), false);
 
         assertThat(design).containsKeys("components", "interfaceChanges", "dataChanges", "testPlan", "dependencies",
                 "securitySensitive", "requirementIds", "implementationRequired", "changesApprovedRequirements",
