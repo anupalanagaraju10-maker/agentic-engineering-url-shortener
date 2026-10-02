@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
  * Static registry of the URL-shortener capabilities, exactly as research R5 (vocabulary) and R6
  * (requirement IDs and recorded behavior statements), plus the design data used by DESIGN and
  * IMPACT_ANALYSIS. An entry moves from PLANNED to IMPLEMENTED in the same change that implements it:
- * CREATE_LINK, REDIRECT, ANALYTICS and IDEMPOTENCY by Phase 4 (SCN-A, migration V2); EXPIRATION is still
- * PLANNED (SCN-B).
+ * CREATE_LINK, REDIRECT, ANALYTICS and IDEMPOTENCY by Phase 4 (SCN-A, migration V2); EXPIRATION by Phase 8
+ * (SCN-B, migration V3).
  */
 @Component
 public class CapabilityRegistry {
@@ -27,7 +27,7 @@ public class CapabilityRegistry {
 
     /** Capabilities implemented in the codebase today. */
     private static final Set<Capability> IMPLEMENTED = EnumSet.of(Capability.CREATE_LINK, Capability.REDIRECT,
-            Capability.ANALYTICS, Capability.IDEMPOTENCY);
+            Capability.ANALYTICS, Capability.IDEMPOTENCY, Capability.EXPIRATION);
 
     private static final String LINK = "com.agentic.shortener.link.";
     private static final String LINK_TESTS = "src/test/java/com/agentic/shortener/link/";
@@ -142,8 +142,8 @@ public class CapabilityRegistry {
                         List.of("POST /api/links (expiresAt)", "GET /r/{code} (410 Gone)"),
                         List.of("link.expires_at (V3__link_expiration.sql)"),
                         List.of("LinkExpirationTest"),
-                        List.of(),
-                        List.of()));
+                        classes("Link", "LinkService", "LinkController", "RedirectController", "LinkConfiguration"),
+                        tests("LinkExpirationTest")));
     }
 
     /** Status is applied by the constructor; component classes and test files are empty until implemented. */

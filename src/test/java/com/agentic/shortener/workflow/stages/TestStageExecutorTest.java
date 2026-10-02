@@ -85,13 +85,28 @@ class TestStageExecutorTest {
     }
 
     @Test
-    void aCapabilityWithoutAnImplementedProbeIsADefect() {
-        StageContext context = context(Capability.EXPIRATION); // still PLANNED: no probe exists in this build
+    void anAcceptanceCheckWithoutAnImplementedProbeIsADefect() {
+        // every registry capability has a probe since Phase 8; an unknown check still fails as a defect
+        Map<Node, Map<String, Object>> upstream = new EnumMap<>(Node.class);
+        upstream.put(Node.DECOMPOSE, Map.of("tasks", List.of(Map.of("id", "TASK-1", "capability", "EXPIRATION",
+                "acceptanceChecks", List.of("probe.not-in-this-build")))));
+        StageContext context = new StageContext(UUID.randomUUID(), "fixture", 1, upstream, new CancellationToken());
 
         StageResult result = executor.execute(context);
 
         assertThat(result.failureCode()).isEqualTo("IMPLEMENTATION_DEFECT");
-        assertThat(result.failureReason()).contains("probe.expired-link");
+        assertThat(result.failureReason()).contains("probe.not-in-this-build");
+    }
+
+    @Test
+    void theExpiredLinkProbeRunsAgainstTheRealBuild() {
+        StageResult result = executor.execute(context(Capability.EXPIRATION));
+
+        Map<String, Object> output = StageTestSupport.outputOf(result);
+        assertThat(probes(output)).singleElement().satisfies(p -> {
+            assertThat(p.get("id")).isEqualTo("probe.expired-link");
+            assertThat(p.get("passed")).isEqualTo(true);
+        });
     }
 
     @Test

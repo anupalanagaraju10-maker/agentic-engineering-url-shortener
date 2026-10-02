@@ -5,6 +5,7 @@ import com.agentic.shortener.common.ErrorCategory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
@@ -38,9 +39,11 @@ public class LinkService {
     private final UrlValidator validator;
     private final ShortCodeGenerator generator;
     private final TransactionTemplate tx;
+    private final Clock clock;
 
     public LinkService(LinkRepository links, IdempotencyRepository keys, UrlValidator validator,
-            ShortCodeGenerator generator, PlatformTransactionManager transactionManager) {
+            ShortCodeGenerator generator, PlatformTransactionManager transactionManager, Clock clock) {
+        this.clock = clock;
         this.links = links;
         this.keys = keys;
         this.validator = validator;
@@ -53,16 +56,25 @@ public class LinkService {
     }
 
     public CreateResult create(String url, String idempotencyKey) {
-        return create(url, idempotencyKey, null);
+        return create(url, null, idempotencyKey);
     }
 
-    private CreateResult create(String url, String idempotencyKey, UUID probeRunId) {
+    /** {@code expiresAt} is optional; when given it must be in the future (FR-URL-001, FR-URL-009). */
+    public CreateResult create(String url, Instant expiresAt, String idempotencyKey) {
+        return create(url, idempotencyKey, null, expiresAt);
+    }
+
+    private CreateResult create(String url, String idempotencyKey, UUID probeRunId, Instant expiresAt) {
         validator.validate(url);
+        if (expiresAt != null && !expiresAt.isAfter(clock.instant())) {
+            throw new ApiException(ErrorCategory.VALIDATION, HttpStatus.BAD_REQUEST,
+                    "expiresAt must be in the future (was " + expiresAt + ")");
+        }
         if (idempotencyKey != null && (idempotencyKey.isBlank() || idempotencyKey.length() > MAX_IDEMPOTENCY_KEY)) {
             throw new ApiException(ErrorCategory.VALIDATION, HttpStatus.BAD_REQUEST,
                     "Idempotency-Key must be non-blank and at most " + MAX_IDEMPOTENCY_KEY + " characters");
         }
-        String fingerprint = idempotencyKey == null ? null : fingerprint(url);
+        String fingerprint = idempotencyKey == null ? null : fingerprint(url, expiresAt);
         if (idempotencyKey != null) {
             Optional<CreateResult> earlier = replay(idempotencyKey, fingerprint);
             if (earlier.isPresent()) {
@@ -76,7 +88,8 @@ public class LinkService {
                 continue;
             }
             try {
-                Link link = tx.execute(status -> insert(code, url, probeRunId, idempotencyKey, fingerprint));
+                Link link = tx.execute(status -> insert(code, url, probeRunId, expiresAt, idempotencyKey,
+                        fingerprint));
                 return new CreateResult(link, false);
             } catch (DataIntegrityViolationException e) {
                 if (idempotencyKey != null) { // a concurrent request may have taken the key: re-read
@@ -98,13 +111,19 @@ public class LinkService {
     }
 
     /**
-     * Resolves an active link and counts the redirect. A lookup failure propagates (503, never 404); an
-     * analytics failure is logged and the redirect still proceeds (FR-URL-013, FR-URL-017).
+     * Resolves an active link and counts the redirect. Unknown ⇒ 404; expired ⇒ 410 EXPIRED, not counted
+     * (FR-URL-007/008/010). A lookup failure propagates (503, never 404/410); an analytics failure is logged
+     * and the redirect still proceeds (FR-URL-013, FR-URL-017).
      */
     public String redirect(String code) {
         Link link = get(code);
+        Instant now = clock.instant();
+        if (link.isExpiredAt(now)) {
+            throw new ApiException(ErrorCategory.EXPIRED, HttpStatus.GONE,
+                    "Link " + code + " expired at " + link.getExpiresAt());
+        }
         try {
-            links.recordRedirect(link.getId(), Instant.now());
+            links.recordRedirect(link.getId(), now);
         } catch (DataAccessException | TransactionException e) {
             log.warn("Analytics recording failed for code {}; redirecting anyway: {}", code, e.getMessage());
         }
@@ -118,10 +137,14 @@ public class LinkService {
 
     /** Probe variant of {@link #create}: same validation, codes and idempotency, tagged with the run id. */
     public CreateResult createProbeLink(String url, UUID runId, String idempotencyKey) {
+        return createProbeLink(url, runId, idempotencyKey, null);
+    }
+
+    public CreateResult createProbeLink(String url, UUID runId, String idempotencyKey, Instant expiresAt) {
         if (runId == null) {
             throw new IllegalArgumentException("a probe link needs its run id");
         }
-        return create(url, idempotencyKey, runId);
+        return create(url, idempotencyKey, runId, expiresAt);
     }
 
     public long countProbeLinks(UUID runId) {
@@ -140,9 +163,9 @@ public class LinkService {
         return deleted == null ? 0 : deleted;
     }
 
-    private Link insert(String code, String url, UUID probeRunId, String key, String fingerprint) {
-        Instant now = Instant.now();
-        Link link = links.saveAndFlush(new Link(code, url, now, probeRunId));
+    private Link insert(String code, String url, UUID probeRunId, Instant expiresAt, String key, String fingerprint) {
+        Instant now = clock.instant();
+        Link link = links.saveAndFlush(new Link(code, url, now, probeRunId, expiresAt));
         if (key != null) {
             keys.saveAndFlush(new IdempotencyRecord(key, fingerprint, link.getId(), now));
         }
@@ -161,10 +184,14 @@ public class LinkService {
         });
     }
 
-    /** SHA-256 of the canonical request; today the request is only the url (research R14). */
-    static String fingerprint(String url) {
+    /**
+     * SHA-256 of the canonical request {@code (url, expiresAt)} (research R14). Without an expiration the
+     * canonical form is the url alone, so keys recorded before SCN-B keep replaying.
+     */
+    static String fingerprint(String url, Instant expiresAt) {
+        String canonical = expiresAt == null ? url : url + "\n" + expiresAt;
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(url.getBytes(StandardCharsets.UTF_8));
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 unavailable", e);

@@ -854,12 +854,12 @@ Impact analysis and HUMAN design approval come **before** any expiration code.
 **Independent test**: `ScenarioBTest`. Live SCN-B reaches `COMPLETED`, and TEST probes the real 410
 behavior.
 
-- [ ] T110 [US4] **HUMAN** (records in `docs/scenarios/README.md`): submit the live SCN-B requirement ("Add optional expiration to existing
+- [X] T110 [US4] **HUMAN** (records in `docs/scenarios/README.md`): submit the live SCN-B requirement ("Add optional expiration to existing
   links; expired links return an expired result distinct from not-found."). Check `BROWNFIELD`,
   `IMPACT_ANALYSIS` with all 10 areas, and `CHG-01 PASS`. Review the impact analysis and design, then
   **approve `DESIGN_APPROVAL`**. The run waits in `AWAITING_IMPLEMENTATION`. **No expiration code may
   exist before this approval.** Record the run id in `docs/scenarios/README.md`.
-- [ ] T134 [US4] After T110 and before T111 (reference-alignment review F3; user guide brownfield
+- [X] T134 [US4] After T110 and before T111 (reference-alignment review F3; user guide brownfield
   gate): write `docs/scenarios/scn-b-impact-analysis.md` from the live run's `IMPACT_ANALYSIS` and
   `DESIGN` outputs only (cite the run id and stage output; nothing invented): change-impact summary,
   dependency map (incl. `dataFlows`), test-first plan (T111–T113), regression-risk matrix. The
@@ -867,7 +867,7 @@ behavior.
 
 ### Tests first (after T110)
 
-- [ ] T111 [P] [US4] Write `test/link/LinkExpirationTest.java`:
+- [X] T111 [P] [US4] Write `test/link/LinkExpirationTest.java`:
   - `expiresAt` in the future accepted and echoed;
   - not in the future ⇒ 400 `VALIDATION`;
   - after expiry `GET /r/{code}` ⇒ 410 `EXPIRED`, no redirect, count unchanged;
@@ -875,33 +875,33 @@ behavior.
   - the idempotency fingerprint includes `expiresAt` (same key, different `expiresAt` ⇒ 409).
 
   (FR-URL-001, 008, 009, 011)
-- [ ] T112 [P] [US4] Extend `test/workflow/rules/CapabilityRegistryTest.java`: EXPIRATION
+- [X] T112 [P] [US4] Extend `test/workflow/rules/CapabilityRegistryTest.java`: EXPIRATION
   `IMPLEMENTED`, with approved statements citing FR-URL-008/009 and an expiration acceptance probe.
-- [ ] T113 [P] [US4] Write `test/scenario/ScenarioBTest.java` (MockMvc, fixture evidence):
+- [X] T113 [P] [US4] Write `test/scenario/ScenarioBTest.java` (MockMvc, fixture evidence):
   - brownfield branch taken, impact report complete;
   - `IMPLEMENT` not eligible before design approval;
   - evidence, then parallel validation including the expiration probe, then release;
   - `COMPLETED`.
 
   (FR-SCN-002)
-- [ ] T114 [US4] Run `./mvnw test` for T111–T113 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 8 checkpoint.
+- [X] T114 [US4] Run `./mvnw test` for T111–T113 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 8 checkpoint.
 
 ### Implementation
 
-- [ ] T115 [US4] Create `src/main/resources/db/migration/V3__link_expiration.sql`: `ALTER TABLE link
+- [X] T115 [US4] Create `src/main/resources/db/migration/V3__link_expiration.sql`: `ALTER TABLE link
   ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE NULL` ("NULL = never expires").
   Traceability: FR-URL-008, FR-SCN-002.
-- [ ] T116 [US4] Update `main/link/Link.java`, `LinkService.java` (future-only validation;
+- [X] T116 [US4] Update `main/link/Link.java`, `LinkService.java` (future-only validation;
   resolve ⇒ ACTIVE/NOT_FOUND/EXPIRED via an injected `java.time.Clock`; fingerprint includes
   `expiresAt`), `LinkController.java` (`expiresAt` field) and `RedirectController.java` (410, no count
   increment).
   Traceability: per T111; FR-URL-008/009/011.
-- [ ] T117 [US4] Update `main/workflow/rules/CapabilityRegistry.java`: EXPIRATION `PLANNED →
+- [X] T117 [US4] Update `main/workflow/rules/CapabilityRegistry.java`: EXPIRATION `PLANNED →
   IMPLEMENTED`, with components, migration V3, tests, approved behavior statements and the expiration
   probe used by `TestStageExecutor`.
   Traceability: per T112; research R6.
-- [ ] T118 [US4] Run `./mvnw verify`. All tests green (record red → green).
-- [ ] T119 [US4] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 8 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T118 [US4] Run `./mvnw verify`. All tests green (record red → green).
+- [X] T119 [US4] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 8 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 - [ ] T120 [US4] **HUMAN** (records in `docs/scenarios/README.md`): commit (e.g. `feat: add optional link expiration (SCN-B brownfield)`),
   restart the app, record the SCN-B evidence (changed artifacts + commit id + requirement IDs), and
   **approve `RELEASE_APPROVAL`**. The run reaches `COMPLETED`.

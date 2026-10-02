@@ -10,6 +10,8 @@ import com.agentic.shortener.workflow.engine.Provenance;
 import com.agentic.shortener.workflow.engine.StageContext;
 import com.agentic.shortener.workflow.engine.StageExecutor;
 import com.agentic.shortener.workflow.engine.StageResult;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +31,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TestStageExecutor implements StageExecutor {
+
+    private static final Duration PROBE_LIFETIME = Duration.ofMillis(300);
 
     private final LinkService links;
 
@@ -149,9 +153,31 @@ public class TestStageExecutor implements StageExecutor {
                 return expectRefusal(() -> links.createProbeLink(url + "/other", runId, key), ErrorCategory.CONFLICT,
                         "same key with a different request");
             }
+            case "probe.expired-link" -> {
+                // a real link with a 300 ms lifetime: redirects while active, 410 EXPIRED afterwards, uncounted
+                created[0]++;
+                Link link = links.createProbeLink(url, runId, null, Instant.now().plus(PROBE_LIFETIME)).link();
+                boolean activeRedirects = url.equals(links.redirect(link.getCode()));
+                sleep(PROBE_LIFETIME.plusMillis(50));
+                ProbeOutcome expired = expectRefusal(() -> links.redirect(link.getCode()), ErrorCategory.EXPIRED,
+                        "redirect after expiry");
+                long count = links.get(link.getCode()).getRedirectCount();
+                boolean ok = activeRedirects && expired.passed() && count == 1;
+                return new ProbeOutcome(ok, "active link redirected; " + expired.detail()
+                        + "; redirect count stayed " + count);
+            }
             default -> {
                 return new ProbeOutcome(false, "no acceptance probe is implemented in this build");
             }
+        }
+    }
+
+    private static void sleep(Duration duration) {
+        try {
+            Thread.sleep(duration.toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("probe interrupted", e);
         }
     }
 

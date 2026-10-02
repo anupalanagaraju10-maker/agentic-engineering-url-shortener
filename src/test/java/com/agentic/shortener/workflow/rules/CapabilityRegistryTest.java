@@ -21,14 +21,14 @@ class CapabilityRegistryTest {
     }
 
     @Test
-    void coreCapabilitiesAreImplementedAndExpirationIsStillPlanned() {
-        // T062: Phase 4 (SCN-A implementation) implemented the core shortener; expiration waits for SCN-B.
+    void allCapabilitiesAreImplementedAfterScnB() {
+        // T062: Phase 4 (SCN-A) implemented the core shortener; T117: Phase 8 (SCN-B) implemented expiration.
         assertThat(registry.entries()).extracting(CapabilityEntry::capability, CapabilityEntry::status).containsExactly(
                 org.assertj.core.groups.Tuple.tuple(Capability.CREATE_LINK, CapabilityStatus.IMPLEMENTED),
                 org.assertj.core.groups.Tuple.tuple(Capability.REDIRECT, CapabilityStatus.IMPLEMENTED),
                 org.assertj.core.groups.Tuple.tuple(Capability.ANALYTICS, CapabilityStatus.IMPLEMENTED),
                 org.assertj.core.groups.Tuple.tuple(Capability.IDEMPOTENCY, CapabilityStatus.IMPLEMENTED),
-                org.assertj.core.groups.Tuple.tuple(Capability.EXPIRATION, CapabilityStatus.PLANNED));
+                org.assertj.core.groups.Tuple.tuple(Capability.EXPIRATION, CapabilityStatus.IMPLEMENTED));
     }
 
     @Test
@@ -38,7 +38,14 @@ class CapabilityRegistryTest {
         assertThat(registry.entry(Capability.IDEMPOTENCY).testFiles())
                 .contains("src/test/java/com/agentic/shortener/link/LinkApiTest.java");
         assertThat(Files.exists(Path.of("src/main/resources/db/migration/V2__links.sql"))).isTrue();
-        assertThat(registry.entry(Capability.EXPIRATION).componentClasses()).isEmpty();
+        // T112: EXPIRATION cites its migration, approved statements (FR-URL-008/009) and acceptance probe
+        assertThat(Files.exists(Path.of("src/main/resources/db/migration/V3__link_expiration.sql"))).isTrue();
+        assertThat(registry.entry(Capability.EXPIRATION).componentClasses())
+                .contains("com.agentic.shortener.link.LinkService", "com.agentic.shortener.link.RedirectController");
+        assertThat(registry.entry(Capability.EXPIRATION).testFiles())
+                .contains("src/test/java/com/agentic/shortener/link/LinkExpirationTest.java");
+        assertThat(registry.entry(Capability.EXPIRATION).requirementIds()).containsExactly("FR-URL-008", "FR-URL-009");
+        assertThat(registry.entry(Capability.EXPIRATION).probeIds()).containsExactly("probe.expired-link");
     }
 
     @Test

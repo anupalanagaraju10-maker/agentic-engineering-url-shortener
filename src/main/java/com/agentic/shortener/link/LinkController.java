@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-/** Link API (contracts/openapi.yaml {@code /api/links}; FR-URL-001, 010, 011). */
+/** Link API (contracts/openapi.yaml {@code /api/links}; FR-URL-001, 009, 010, 011). */
 @RestController
 @RequestMapping("/api/links")
 public class LinkController {
@@ -23,18 +23,19 @@ public class LinkController {
         this.links = links;
     }
 
-    public record CreateLinkRequest(String url) {
+    /** {@code expiresAt} is optional (absolute ISO-8601 instant; FR-URL-001, FR-URL-009). */
+    public record CreateLinkRequest(String url, Instant expiresAt) {
     }
 
-    public record LinkResponse(String code, String shortUrl, String originalUrl, Instant createdAt, long redirectCount,
-            Instant lastRedirectAt) {
+    public record LinkResponse(String code, String shortUrl, String originalUrl, Instant createdAt, Instant expiresAt,
+            long redirectCount, Instant lastRedirectAt) {
     }
 
     /** 201 for a new link; 200 for an idempotent replay (same key, same request). */
     @PostMapping
     public ResponseEntity<LinkResponse> create(@RequestBody CreateLinkRequest request,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
-        LinkService.CreateResult result = links.create(request.url(), idempotencyKey);
+        LinkService.CreateResult result = links.create(request.url(), request.expiresAt(), idempotencyKey);
         return ResponseEntity.status(result.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(view(result.link()));
     }
 
@@ -47,6 +48,6 @@ public class LinkController {
         String shortUrl = ServletUriComponentsBuilder.fromCurrentContextPath().path("/r/{code}")
                 .buildAndExpand(link.getCode()).toUriString();
         return new LinkResponse(link.getCode(), shortUrl, link.getOriginalUrl(), link.getCreatedAt(),
-                link.getRedirectCount(), link.getLastRedirectAt());
+                link.getExpiresAt(), link.getRedirectCount(), link.getLastRedirectAt());
     }
 }
