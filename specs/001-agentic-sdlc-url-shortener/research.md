@@ -463,6 +463,10 @@ Clarifications only; no architectural decision changes.
   implementation evidence. It cannot and does not undo Git changes. Reverting or adjusting
   repository changes is an external engineering responsibility, done in Git under SpecKit tasks.
   Downstream validation runs only after new evidence with a new revision is recorded.
+- **FR-POL-007 recorded impact analysis**: the impact analysis recorded before replanning is the
+  `PLAN_REPLANNED` payload, written in the same transaction before any affected stage re-executes.
+  It holds the reason, affected nodes, preserved nodes and invalidated decisions. For brownfield
+  requirements, the re-run `IMPACT_ANALYSIS` stage adds the ten-area report.
 - **CHK013 Material requirement change**: a change is material when it changes any of:
   - approved observable behavior;
   - acceptance criteria;

@@ -113,8 +113,8 @@ count.
 
 Basis: human decisions CHK009 (spec clarification approved) and CHK042 (ASM-001 accepted), plus
 the clarifications in plan §Checklist gate clarifications — round 2, research R5/R6/R11/R20,
-data-model (evidence timestamp), ADR-0001/0005 wording clarifications, and tasks T009, T034, T037,
-T041, T065, T074, T079, T087, T118, T119, T121.
+data-model (evidence timestamp), ADR-0001/0005 wording clarifications, and tasks T009, T036, T039,
+T043, T069, T079, T084, T093, T128, T129, T131.
 
 | Item | Now satisfied by |
 |---|---|
@@ -125,10 +125,10 @@ T041, T065, T074, T079, T087, T118, T119, T121.
 | CHK013 | R20: objective materiality criteria; HUMAN-initiated; no runtime inference |
 | CHK015 | R20: semantic definition of "same stage path" and the explicit exclusions |
 | CHK018 | R11: PRIV-01 term list; DEP-01 list with licenses verified from POM metadata (local cache; Maven Central for the uncached `spring-boot-starter-data-jpa` 3.5.16). Transitive Hibernate 6.6.53.Final LGPL-2.1+ noted |
-| CHK024 | R20 + data-model + T034/T118: evidence refused before approval; evidence timestamp later than approval; traceability shows the order; limitation stated |
-| CHK027 | R20 + T015/T074: overlap measured with controlled instrumentation on the real scheduler. **Note**: the acknowledgment is in plan/research by human direction; the spec's SC-002 text is unchanged |
-| CHK028 | R20 + T118: SC-003 population enumerated. **Note**: defined in plan/research; the spec's SC-003 text is unchanged |
-| CHK033 | R20 + plan + ADR-0005 §5 clarification + T079/T087: `RUNNING` runs with or without a running stage are covered |
+| CHK024 | R20 + data-model + T036/T128: evidence refused before approval; evidence timestamp later than approval; traceability shows the order; limitation stated |
+| CHK027 | R20 + T016/T079: overlap measured with controlled instrumentation on the real scheduler. **Note**: the acknowledgment is in plan/research by human direction; the spec's SC-002 text is unchanged |
+| CHK028 | R20 + T128: SC-003 population enumerated. **Note**: defined in plan/research; the spec's SC-003 text is unchanged |
+| CHK033 | R20 + plan + ADR-0005 §5 clarification + T084/T093: `RUNNING` runs with or without a running stage are covered |
 | CHK039 | R20: derived whole-command safety bound (≤ 5 waves, ~76.5 s, stated 90 s), distinct from PVT-004 |
 | CHK042 | spec ASM-001 (explicitly accepted): external brief ranks above repository artifacts and is not copied in |
 

@@ -404,6 +404,8 @@ part of the change.
 
 ## Requirements-quality gate resolutions (checklists/orchestration.md, 2026-10-02)
 
+> If this summary and `research.md` R19/R20 ever differ, `research.md` is authoritative.
+
 Amendments requested by the human candidate after `/speckit.checklist`. Each closes or clarifies a
 checklist item; none changes the DAG, the planes or the technology.
 
@@ -426,6 +428,8 @@ checklist item; none changes the DAG, the planes or the technology.
 | CHK037 | Self-declared `actorType` (no authentication, EXC-003) is an **accepted risk**, owned by the human candidate and accepted with ADR-0004 on 2026-10-02. It is listed in the README limitations, and production would bind actor types to authenticated identities. | ADR-0004 Risks |
 
 ## Checklist gate clarifications — round 2 (2026-10-02)
+
+> If this summary and `research.md` R19/R20 ever differ, `research.md` is authoritative.
 
 Human decisions: CHK009 (approved spec clarification) and CHK042 (ASM-001 accepted). All other rows
 are clarifications with no architectural change. Full text is in research R5 (CHK011), R6 (CHK012),
