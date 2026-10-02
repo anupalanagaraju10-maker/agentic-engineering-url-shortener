@@ -14,6 +14,8 @@ Claude Code implements; the workflow verifies the running build.
   [quickstart](specs/001-agentic-sdlc-url-shortener/quickstart.md)
 - **Evidence**: [three live scenarios](docs/scenarios/README.md) · [traceability matrix](docs/traceability/matrix.md) ·
   [measurements](docs/assessment/measurements.md) · [reviewer guide](docs/assessment/reviewer-navigation.md)
+- **Conclusions**: [final engineering summary](docs/assessment/final-engineering-summary.md) ·
+  [final assessment](docs/assessment/final-assessment.md)
 
 ## Prerequisites
 

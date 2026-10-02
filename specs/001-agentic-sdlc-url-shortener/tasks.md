@@ -1019,7 +1019,7 @@ only after the clarification.
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Then the remaining lifecycle stages follow: full validation,
 `/speckit.converge`, the independent final assessment, and the final engineering summary.
 
-- [ ] T139 After `/speckit.converge` and the final assessment: write
+- [X] T139 After `/speckit.converge` and the final assessment: write
   `docs/assessment/final-engineering-summary.md` (assignment §4.8 / §5; review F5) covering what was
   built, architecture and trade-offs, the three scenarios with their real run ids, testing approach
   and actual results, limitations and risks, and what would change for production. Real results
