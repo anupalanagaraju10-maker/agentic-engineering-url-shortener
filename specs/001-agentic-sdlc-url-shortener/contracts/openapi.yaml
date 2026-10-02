@@ -1,0 +1,487 @@
+openapi: 3.0.3
+info:
+  title: Agentic SDLC URL Shortener API
+  version: 1.0.0-plan
+  description: >
+    Planned contract (/speckit.plan, 2026-10-01). Not yet implemented. Errors use RFC 9457
+    Problem Details (application/problem+json) with an added `category` field and never include
+    stack traces. No authentication (EXC-003): actorType/actorIdentity are self-declared;
+    human gates accept only actorType HUMAN.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: links
+    description: Application plane — URL shortener
+  - name: workflows
+    description: Control plane — governed SDLC workflow
+  - name: metrics
+    description: Demonstration metrics
+
+paths:
+  /api/links:
+    post:
+      tags: [links]
+      summary: Create a short link (FR-URL-001..005, 009, 011, 016)
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 100 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLinkRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Link' } } } }
+        '200': { description: Idempotent replay (same key, same request), content: { application/json: { schema: { $ref: '#/components/schemas/Link' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+
+  /api/links/{code}:
+    get:
+      tags: [links]
+      summary: Link details and analytics (FR-URL-010)
+      parameters: [ { $ref: '#/components/parameters/Code' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Link' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+
+  /r/{code}:
+    get:
+      tags: [links]
+      summary: Redirect (FR-URL-006..008, 013, 017)
+      parameters: [ { $ref: '#/components/parameters/Code' } ]
+      responses:
+        '302':
+          description: 'Active link. Counted. Sent with Cache-Control: no-store.'
+          headers:
+            Location: { schema: { type: string, format: uri } }
+            Cache-Control: { schema: { type: string, example: no-store } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '410': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+
+  /actuator/health:
+    get:
+      tags: [links]
+      summary: Health; DOWN when storage unavailable (FR-URL-014)
+      responses:
+        '200': { description: UP }
+        '503': { description: DOWN }
+
+  /api/workflows:
+    post:
+      tags: [workflows]
+      summary: Submit a requirement; engine advances until a gate, safe-stop or final outcome
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRunRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+
+  /api/workflows/{id}:
+    get:
+      tags: [workflows]
+      summary: Inspect run — main inspection endpoint (FR-ORC-001/015, NFR-005)
+      description: >
+        Returns status, pending action, plan/policy version, every DAG node with its kind,
+        dependencies and current state (the inspectable graph), and policy results. Audit trail
+        and decision lineage are available from the two sub-resources below.
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /api/workflows/{id}/events:
+    get:
+      tags: [workflows]
+      summary: Append-only audit trail in sequence order (FR-OBS-001)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEvent' } } } } }
+
+  /api/workflows/{id}/decisions:
+    get:
+      tags: [workflows]
+      summary: Decision lineage (FR-ORC-010)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Decision' } } } } }
+
+  /api/workflows/{id}/report:
+    get:
+      tags: [workflows]
+      summary: Final engineering report (available once FINAL_REPORT succeeded)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+        '409': { $ref: '#/components/responses/Problem' }
+
+  /api/workflows/{id}/approve:
+    post:
+      tags: [workflows]
+      summary: Approve the gate the run is waiting at (DESIGN_APPROVAL or RELEASE_APPROVAL)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GateDecision' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/reject:
+    post:
+      tags: [workflows]
+      summary: Reject the current gate; REJECTION decision recorded, run waits in AWAITING_REWORK (FR-HUM-005)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GateDecision' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/rework:
+    post:
+      tags: [workflows]
+      summary: Direct rework of a node upstream of the rejected gate; replans from it (plan+1)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReworkRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/terminate:
+    post:
+      tags: [workflows]
+      summary: Terminate (HUMAN) a run in any AWAITING_* state or recoverable SAFE_STOPPED; compensation sweep; final outcome FAILED
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActorReason' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/clarify:
+    post:
+      tags: [workflows]
+      summary: Provide clarification; replans from UNDERSTAND (plan+1)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClarifyRequest' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/requirement-change:
+    post:
+      tags: [workflows]
+      summary: Material requirement change on a non-final run; replans from UNDERSTAND (plan+1)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RequirementChange' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/policy-exceptions/{checkId}:
+    post:
+      tags: [workflows]
+      summary: Approve or reject a requested policy exception (FR-POL-004/005)
+      parameters:
+        - { $ref: '#/components/parameters/RunId' }
+        - { name: checkId, in: path, required: true, schema: { type: string, example: PRIV-01 } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExceptionDecision' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/implementation:
+    post:
+      tags: [workflows]
+      summary: Record evidence of the EXTERNAL_ACTION (implementation done by an engineer and/or Claude Code); IMPLEMENT succeeds and TEST/DOCS/SECURITY become eligible
+      description: >
+        Allowed only while the run is AWAITING_IMPLEMENTATION at the current plan version. The
+        application does not write code and does not verify that the revision exists; TEST and
+        SECURITY probes verify behavior of the running build.
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ImplementationEvidence' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '400': { $ref: '#/components/responses/Problem' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/workflows/{id}/resume:
+    post:
+      tags: [workflows]
+      summary: Resume a recoverable SAFE_STOPPED run (FR-REL-009)
+      parameters: [ { $ref: '#/components/parameters/RunId' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActorReason' } } } }
+      responses: { '200': { $ref: '#/components/responses/RunOk' }, '409': { $ref: '#/components/responses/Problem' } }
+
+  /api/metrics/workflows:
+    get:
+      tags: [metrics]
+      summary: Demonstration reliability metrics (FR-OBS-004/005)
+      parameters:
+        - name: faultInjected
+          in: query
+          required: false
+          description: true = injected runs only; false = runs without injected faults; omitted = all runs
+          schema: { type: boolean }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Metrics' } } } }
+
+components:
+  parameters:
+    Code: { name: code, in: path, required: true, schema: { type: string, pattern: '^[0-9A-Za-z]{7}$' } }
+    RunId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+
+  responses:
+    Problem:
+      description: Problem Details
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    RunOk:
+      description: Decision accepted; run advanced as far as allowed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Run' } } }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, category]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        category:
+          type: string
+          enum: [VALIDATION, NOT_FOUND, EXPIRED, CONFLICT, INVALID_STATE, STALE_PLAN_VERSION, EVIDENCE_SCOPE_MISMATCH, CHANGE_CONTROL_REQUIRED, FAULT_INJECTION_DISABLED, REPLAN_FAILED, STORAGE_UNAVAILABLE, CODE_SPACE_EXHAUSTED, INTERNAL]
+
+    CreateLinkRequest:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, maxLength: 2048, example: 'https://example.com/docs' }
+        expiresAt: { type: string, format: date-time, nullable: true, description: 'Must be in the future (FR-URL-009). Added by SCN-B.' }
+
+    Link:
+      type: object
+      properties:
+        code: { type: string }
+        shortUrl: { type: string, example: 'http://localhost:8080/r/aB3dE9x' }
+        originalUrl: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        redirectCount: { type: integer, format: int64 }
+        lastRedirectAt: { type: string, format: date-time, nullable: true }
+
+    Fault:
+      type: object
+      description: Demonstration fault injection for automated nodes only (FR-REL-011). Disabled by default; accepted only when enabled by the demo profile or test configuration, otherwise 400 FAULT_INJECTION_DISABLED. Fires after the executor's work and before its completion commit; every effect is labeled INJECTED and the run counts as an injected run in metrics.
+      required: [stage, type]
+      properties:
+        stage: { $ref: '#/components/schemas/Node' }
+        type: { type: string, enum: [TRANSIENT, PERMANENT, TIMEOUT, DELAY, COMPENSATION_FAILURE] }
+        times: { type: integer, minimum: 1, default: 1 }
+        delayMs: { type: integer, minimum: 0 }
+
+    CreateRunRequest:
+      allOf:
+        - $ref: '#/components/schemas/Actor'
+        - type: object
+          required: [requirement]
+          description: actorType HUMAN or AGENT.
+          properties:
+            requirement: { type: string, maxLength: 4000 }
+            faults: { type: array, items: { $ref: '#/components/schemas/Fault' } }
+
+    Node:
+      type: string
+      enum: [INTAKE, UNDERSTAND, CLARIFICATION, DECOMPOSE, IMPACT_ANALYSIS, DESIGN, DESIGN_APPROVAL, IMPLEMENT, TEST, DOCS, SECURITY, RELEASE_READINESS, RELEASE_APPROVAL, FINAL_REPORT]
+
+    RunStatus:
+      type: string
+      enum: [RUNNING, AWAITING_CLARIFICATION, AWAITING_APPROVAL, AWAITING_IMPLEMENTATION, AWAITING_REWORK, SAFE_STOPPED, COMPLETED, FAILED]
+
+    StageStatus:
+      type: string
+      enum: [PENDING, RUNNING, SUCCEEDED, FAILED, BLOCKED, SKIPPED]
+
+    Stage:
+      type: object
+      properties:
+        node: { $ref: '#/components/schemas/Node' }
+        kind: { type: string, enum: [AUTOMATED, HUMAN_GATE, EXTERNAL_ACTION] }
+        conditional: { type: boolean }
+        dependsOn: { type: array, items: { $ref: '#/components/schemas/Node' } }
+        status: { $ref: '#/components/schemas/StageStatus' }
+        attempts: { type: integer }
+        startedAt: { type: string, format: date-time, nullable: true }
+        endedAt: { type: string, format: date-time, nullable: true }
+        threadName: { type: string, nullable: true }
+        provenance: { type: string, enum: [ACTUAL, EXTERNAL, FALLBACK], nullable: true }
+        failureClass: { type: string, enum: [TRANSIENT, PERMANENT], nullable: true }
+        failureReason: { type: string, nullable: true }
+        planVersion: { type: integer }
+        output: { type: object, nullable: true }
+
+    PolicyEvaluation:
+      type: object
+      properties:
+        checkId: { type: string }
+        domain: { type: string }
+        node: { $ref: '#/components/schemas/Node' }
+        mandatory: { type: boolean }
+        result: { type: string, enum: [PASS, FAIL, EXCEPTION_REQUESTED, NOT_APPLICABLE] }
+        reason: { type: string }
+        planVersion: { type: integer }
+        resolutionDecisionId: { type: integer, nullable: true }
+
+    Run:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        correlationId: { type: string }
+        originalRequirement: { type: string }
+        currentRequirement: { type: string }
+        changeType: { type: string, enum: [GREENFIELD, BROWNFIELD], nullable: true }
+        status: { $ref: '#/components/schemas/RunStatus' }
+        pendingAction: { type: string, nullable: true, example: 'APPROVE:DESIGN_APPROVAL' }
+        statusReason: { type: string, nullable: true }
+        planVersion: { type: integer }
+        policyVersion: { type: string, example: v1 }
+        recoverable: { type: boolean }
+        stages: { type: array, items: { $ref: '#/components/schemas/Stage' } }
+        policyEvaluations: { type: array, items: { $ref: '#/components/schemas/PolicyEvaluation' } }
+
+    AuditEvent:
+      type: object
+      properties:
+        seq: { type: integer }
+        type: { type: string, example: STAGE_SUCCEEDED }
+        node: { type: string, nullable: true }
+        actorType: { $ref: '#/components/schemas/ActorType' }
+        actorIdentity: { type: string, example: workflow-engine }
+        runId: { type: string, format: uuid }
+        correlationId: { type: string }
+        planVersion: { type: integer }
+        policyVersion: { type: string }
+        injected: { type: boolean }
+        payload: { type: object }
+        createdAt: { type: string, format: date-time }
+
+    Decision:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        gate: { type: string, nullable: true }
+        actorType: { $ref: '#/components/schemas/ActorType' }
+        actorIdentity: { type: string }
+        reason: { type: string }
+        planVersion: { type: integer }
+        supersedesId: { type: integer, nullable: true }
+        payload: { type: object }
+        createdAt: { type: string, format: date-time }
+
+    ActorType:
+      type: string
+      enum: [SYSTEM, HUMAN, AGENT]
+      description: >
+        SYSTEM is never accepted from the API (engine only). Human gates, clarification, rework,
+        termination, requirement change, policy exceptions and resume require HUMAN. AGENT
+        (e.g. claude-code) may submit requirements and record implementation evidence only, and
+        can never satisfy a human gate. Self-declared — no authentication (EXC-003).
+
+    Actor:
+      type: object
+      required: [actorType, actorIdentity]
+      properties:
+        actorType: { $ref: '#/components/schemas/ActorType' }
+        actorIdentity: { type: string, maxLength: 100, description: 'Not blank; reserved identities (workflow-engine, system) refused for HUMAN/AGENT; claude-code refused for HUMAN' }
+
+    ActorReason:
+      allOf:
+        - $ref: '#/components/schemas/Actor'
+        - type: object
+          required: [reason]
+          properties:
+            reason: { type: string }
+
+    GateDecision:
+      allOf:
+        - $ref: '#/components/schemas/ActorReason'
+        - type: object
+          required: [gate, planVersion]
+          properties:
+            gate: { type: string, enum: [DESIGN_APPROVAL, RELEASE_APPROVAL] }
+            planVersion: { type: integer, description: 'Plan version reviewed; stale ⇒ 409 (FR-HUM-007)' }
+            acceptedRisks: { type: array, items: { type: string }, description: 'Release approval: residual risks accepted (FR-HUM-002)' }
+
+    ReworkRequest:
+      allOf:
+        - $ref: '#/components/schemas/ActorReason'
+        - type: object
+          required: [fromNode, planVersion]
+          properties:
+            fromNode: { $ref: '#/components/schemas/Node' }
+            planVersion: { type: integer }
+
+    ClarifyRequest:
+      allOf:
+        - $ref: '#/components/schemas/ActorReason'
+        - type: object
+          required: [clarification, planVersion]
+          properties:
+            clarification: { type: string, maxLength: 4000 }
+            planVersion: { type: integer }
+
+    RequirementChange:
+      allOf:
+        - $ref: '#/components/schemas/ActorReason'
+        - type: object
+          required: [requirement, planVersion]
+          properties:
+            requirement: { type: string, maxLength: 4000 }
+            planVersion: { type: integer }
+
+    ImplementationEvidence:
+      allOf:
+        - $ref: '#/components/schemas/Actor'
+        - type: object
+          description: >
+            actorType HUMAN or AGENT. Rules (400 if violated): non-empty changedArtifacts ⇒
+            revision required; empty changedArtifacts (no code/config/schema change) ⇒
+            noChangeJustification required, and is accepted only when the current DESIGN output
+            has implementationRequired = false. The application does not verify the revision
+            against Git; TEST/SECURITY verify behavior.
+          required: [planVersion, summary, changedArtifacts, requirementIds]
+          properties:
+            planVersion: { type: integer, description: 'Plan version implemented; stale ⇒ 409' }
+            summary: { type: string, maxLength: 4000 }
+            changedArtifacts: { type: array, items: { type: string, description: repository-relative path } }
+            revision: { type: string, nullable: true, pattern: '^[0-9a-f]{7,40}$', description: 'Required when changedArtifacts is non-empty' }
+            noChangeJustification: { type: string, nullable: true, description: 'Required when changedArtifacts is empty' }
+            requirementIds: { type: array, minItems: 1, items: { type: string, pattern: '^(FR|NFR)-[A-Z]*-?[0-9]{3}$' } }
+
+    ExceptionDecision:
+      allOf:
+        - $ref: '#/components/schemas/ActorReason'
+        - type: object
+          required: [decision, planVersion]
+          properties:
+            decision: { type: string, enum: [APPROVE, REJECT] }
+            planVersion: { type: integer }
+            scope: { type: string, description: Required for APPROVE }
+            compensatingControl: { type: string, description: Required for APPROVE }
+            expiresOrReview: { type: string, description: 'Required for APPROVE — expiry date or review condition' }
+
+    Metrics:
+      type: object
+      properties:
+        label: { type: string, example: 'DEMONSTRATION — local runs, not production statistics' }
+        runs: { type: object, properties: { total: { type: integer }, completed: { type: integer }, failed: { type: integer }, safeStopped: { type: integer }, successRate: { type: number }, failureRate: { type: number } } }
+        retries: { type: object, properties: { count: { type: integer }, perStageExecution: { type: number } } }
+        filter: { type: string, enum: [ALL, INJECTED_ONLY, NOT_INJECTED] }
+        injectedRuns: { type: integer }
+        runsInProgress: { type: integer, description: 'Waiting or recoverable SAFE_STOPPED; excluded from rates' }
+        rollbacks: { type: integer, description: 'ATTEMPT_ROLLED_BACK events' }
+        compensations: { type: integer }
+        recovery:
+          type: object
+          properties:
+            recoveredIncidents: { type: integer }
+            unrecoveredIncidents: { type: integer }
+            openIncidents: { type: integer }
+            durationsMs: { type: array, items: { type: integer } }
+            mttrMs: { type: number, nullable: true, description: 'Σ recovered durations / recovered count; null if none; includes human reaction time for RESUME/REWORK' }
+            mttrMsByMechanism: { type: object, additionalProperties: { type: number }, description: 'RETRY, FALLBACK, COMPENSATION, RESUME, REWORK' }
+        endToEndMs: { type: object, properties: { wallClockAvg: { type: number }, automatedActiveAvg: { type: number, description: 'Excludes all AWAITING_* time and recoverable SAFE_STOPPED time' }, waitingByStateAvg: { type: object, additionalProperties: { type: number } } } }
