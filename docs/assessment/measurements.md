@@ -40,4 +40,14 @@ Measured by the workflow itself; see `docs/scenarios/README.md` for the full rec
 
 ## Clean-clone verification (T131)
 
-To be recorded when T131 is executed.
+2026-10-02, commit `51d988b13ecc7a4572d5b9d5824e89c79b068b25`:
+
+| Step | Command | Result |
+|---|---|---|
+| Clone | `git clone <repo> clean-clone` (temporary directory) | HEAD `51d988b`; no untracked files; no `data/` or `target/` |
+| Build and test | `./mvnw -q verify` (JDK 21, populated local Maven cache) | exit 0 in 67 s; **276 tests, 0 failures, 0 errors, 0 skipped** (45 test classes, from the surefire reports) |
+| Start | `java -jar target/url-shortener-0.1.0-SNAPSHOT.jar --server.port=8082` (default profile) | Flyway "Successfully applied 3 migrations" to a new `data/shortener.mv.db`; "Started ShortenerApplication in 7.451 seconds" |
+| Health | `GET /actuator/health` | `{"status":"UP"}` |
+
+The `ERROR` lines in the build log come from tests that simulate storage failure and an aborted replan on
+purpose; they are expected output, not failures.

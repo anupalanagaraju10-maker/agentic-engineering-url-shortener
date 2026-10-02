@@ -985,9 +985,9 @@ only after the clarification.
     - human-operated actions rule: every HUMAN-typed request in the live demonstrations was issued
       by the candidate, not the assistant (pre-implementation review H5);
     - back up `./data` before risky steps, because live evidence lives there until exported (T127).
-- [ ] T130 Run quickstart.md validation end to end on a fresh `./data`, and fix any documentation
+- [X] T130 Run quickstart.md validation end to end on a fresh `./data`, and fix any documentation
   mismatch (documentation only; any behavior change goes back through change control).
-- [ ] T131 Clean-clone verification: `git clone` into a temp directory, `./mvnw verify`, start
+- [X] T131 Clean-clone verification: `git clone` into a temp directory, `./mvnw verify`, start
   the app, `GET /actuator/health` returns `UP`. Run `./mvnw verify` normally (a populated cache
   makes it offline). Record the actual commands and results in
   `docs/assessment/measurements.md`.
