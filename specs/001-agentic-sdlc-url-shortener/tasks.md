@@ -917,7 +917,7 @@ only after the clarification.
 
 **Independent test**: `ScenarioCTest`. Live SCN-C reaches `COMPLETED`.
 
-- [ ] T121 [P] [US5] Write `test/scenario/ScenarioCTest.java` (MockMvc) covering two paths:
+- [X] T121 [P] [US5] Write `test/scenario/ScenarioCTest.java` (MockMvc) covering two paths:
   - (a) clarification consistent with the implemented behavior ⇒ plan 2, `implementationRequired =
     false`, evidence with `noChangeJustification` accepted, then `COMPLETED`;
   - (b) clarification that requires new behavior ⇒ `implementationRequired = true`, and
@@ -925,10 +925,10 @@ only after the clarification.
 
   Also: no node after `CLARIFICATION` runs before the clarification; plan-1 decisions are refused
   after the replan. (FR-SCN-003, SC-007)
-- [ ] T122 [US5] Run `./mvnw test` for `test/scenario/ScenarioCTest.java` (red, if any gap remains), fix any gap within already-approved behavior,
+- [X] T122 [US5] Run `./mvnw test` for `test/scenario/ScenarioCTest.java` (red, if any gap remains), fix any gap within already-approved behavior,
   then run `./mvnw verify` (green).
-- [ ] T123 [US5] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 9 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
-- [ ] T124 [US5] **HUMAN** (records in `docs/scenarios/README.md`): submit live "Make links expire." ⇒ `AWAITING_CLARIFICATION` (AMB-R2,
+- [X] T123 [US5] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 9 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T124 [US5] **HUMAN** (records in `docs/scenarios/README.md`): submit live "Make links expire." ⇒ `AWAITING_CLARIFICATION` (AMB-R2,
   AMB-R4). Provide the **real** clarification. Inspect the replanned `DESIGN` (`implementationRequired`,
   `changesApprovedRequirements`), then:
   - if the clarification conflicts with an approved requirement, it is refused (`409`). Decide

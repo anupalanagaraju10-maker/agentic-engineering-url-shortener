@@ -57,3 +57,30 @@ issued by the candidate (pre-implementation review H5). Runtime exports follow i
   (status FAILED) with that reason.
   Run `f660508d-68f0-4f78-af41-ecf444983b66` was a duplicate SCN-B submission made by mistake after the
   design approval of `b4ff60fc`; it was terminated by HUMAN/candidate (status FAILED) with that reason.
+
+## SCN-C — ambiguous (FR-SCN-003)
+
+- Run id: `dbbf2627-5e6d-499e-8a57-44ccda16d54e`, requirement "Make links expire.", submitted by
+  HUMAN/candidate on build `b3d0b8d` (Phase 8).
+- Suspension: `AWAITING_CLARIFICATION` (plan 1) with findings AMB-R2 (no duration, absolute time, trigger or
+  client-supplied statement) and AMB-R4 (which links); CLARIFICATION `BLOCKED`, every later stage `PENDING`
+  with 0 attempts.
+- T124 clarification by HUMAN/candidate (decision 21, 2026-10-02T18:33:48Z): "Expiration is optional per
+  link: the client may supply an absolute expiration time when creating a link; after that time the link
+  returns the expired result; links without an expiration never expire; existing links are unaffected."
+  ⇒ `CLARIFICATION_RECEIVED` (seq 11), affected stages invalidated (seq 13–24), `PLAN_REPLANNED` 1 → 2
+  (seq 25). UNDERSTAND re-ran with no findings; BROWNFIELD; IMPACT_ANALYSIS with data flows; PRIV-01,
+  SEC-01, CHG-01 PASS at plan 2.
+- Replanned DESIGN: `implementationRequired = false`, `changesApprovedRequirements = []`, requirement IDs
+  FR-URL-008/009 — the clarified behavior is the expiration already implemented and released in SCN-B.
+- `DESIGN_APPROVAL` at plan 2 by HUMAN/candidate (decision 23, 2026-10-02T18:35:39Z).
+- No-change implementation evidence by HUMAN/candidate (decision 24, 2026-10-02T18:36:13Z): empty changed
+  artifacts with a `noChangeJustification` citing SCN-B commit `b3d0b8d` and run `b4ff60fc`.
+- Validation of the running build (2026-10-02T18:36:13Z): TEST `probe.expired-link` passed (302, then 410
+  EXPIRED, count stayed 1); SECURITY 20/20; DOCS 8/8; TEST overlaps DOCS and SECURITY, which only touch at
+  one instant (final report `intervalsOverlapPairwise: true` with touching intervals counted); readiness
+  ready, AUD-01 PASS.
+- `RELEASE_APPROVAL` at plan 2 by HUMAN/candidate (decision 25, 2026-10-02T18:37:21Z) with four accepted
+  risks: designed components not cited (no code change; implemented in SCN-B); self-reported no-change
+  evidence; no authentication (EXC-003); DOCS/SECURITY intervals only touching.
+- Outcome: `COMPLETED`. 60 audit events, gap-free. Final report outcome `RELEASE_APPROVED`.
