@@ -272,6 +272,24 @@ class WorkflowEngineTest {
     }
 
     @Test
+    void anInconsistentRunStateIsANonRecoverableSafeStop() {
+        // T140 (FR-REL-007/008): RUNNING, nothing completed or eligible ⇒ "run state is found invalid or
+        // inconsistent" ⇒ SAFE_STOPPED with recoverable = false (not FAILED).
+        defaultStubs("GREENFIELD", List.of());
+        UUID runId = newRun();
+        jdbc.update("update workflow_stage set status = 'FAILED' where run_id = ? and node = 'INTAKE'", runId);
+
+        engine().advance(runId);
+
+        WorkflowRun run = store.loadRun(runId);
+        assertThat(run.getStatus()).isEqualTo(RunStatus.SAFE_STOPPED);
+        assertThat(run.getRecoverable()).isFalse();
+        assertThat(run.getStopReason()).contains("inconsistent");
+        assertThat(eventTypes(runId)).contains(AuditEventType.SAFE_STOPPED).doesNotContain(AuditEventType.RUN_FAILED);
+        assertThat(stubs.get(UNDERSTAND).calls.get()).isZero();
+    }
+
+    @Test
     void storeWritesRequireTheRunLockAndClaimsAreConditional() {
         defaultStubs("GREENFIELD", List.of());
         UUID runId = newRun();

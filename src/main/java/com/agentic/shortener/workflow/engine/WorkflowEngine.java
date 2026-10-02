@@ -40,7 +40,8 @@ import org.springframework.stereotype.Component;
  * <p>Failure handling: TRANSIENT (incl. timeout) ⇒ attempt rollback, retry with backoff up to the attempt
  * limit, then the fallback where one exists (DOCS), else a recoverable safe-stop. PERMANENT ⇒ stage FAILED;
  * an {@code IMPLEMENTATION_DEFECT} from TEST/SECURITY moves the run to AWAITING_REWORK (CHK036); a blocked
- * RELEASE_READINESS is a non-recoverable safe-stop; any other permanent failure ends the run FAILED. A failed
+ * RELEASE_READINESS or an inconsistent run state is a non-recoverable safe-stop; any other permanent failure
+ * ends the run FAILED. A failed
  * TEST attempt is compensated (probe links deleted); a compensation failure is a non-recoverable safe-stop.
  */
 @Component
@@ -169,7 +170,11 @@ public class WorkflowEngine {
             }
 
             if (eligible.isEmpty()) {
-                store.failRun(runId, "INVARIANT: run is RUNNING but no node is eligible");
+                // FR-REL-007/008: run state found invalid or inconsistent ⇒ non-recoverable safe-stop
+                sweepProbeLinks(runId, "inconsistent run state");
+                store.safeStop(runId, "INVARIANT: run state is inconsistent (RUNNING, but no node is eligible "
+                        + "and not all nodes are done)", false);
+                store.recoveryFailedForOpenIncidents(runId, "SAFE_STOPPED");
                 return;
             }
             if (!runWave(run, eligible, outputs)) {

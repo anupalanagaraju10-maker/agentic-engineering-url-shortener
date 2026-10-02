@@ -1101,3 +1101,8 @@ then: T057 entities/repos ‖ T058 UrlValidator ‖ T059 ShortCodeGenerator → 
   only from the running system (T127).
 - `/speckit-implement` reads `checklists/orchestration.md` checkbox state as a gate (42/42 checked
   since 2026-10-02).
+
+## Phase 11: Convergence
+
+- [X] T140 Route a run found RUNNING with no eligible node ("run state is found invalid or inconsistent") to a non-recoverable SAFE_STOPPED instead of FAILED in `main/workflow/engine/WorkflowEngine.java`, test-first in `test/workflow/engine/WorkflowEngineTest.java`, per FR-REL-007, FR-REL-008 (contradicts)
+- [X] T141 Record in `docs/traceability/matrix.md` that the T089 retry/timeout runner is implemented inside `main/workflow/engine/WorkflowEngine.java` rather than a separate `RetryTimeoutRunner.java` (behavior verified by `RetryTimeoutTest`), or extract the class, per tasks T089 (partial)

@@ -153,7 +153,7 @@ stateDiagram-v2
     RUNNING --> AWAITING_APPROVAL : gate reached / policy exception requested
     RUNNING --> AWAITING_IMPLEMENTATION : IMPLEMENT reached
     RUNNING --> AWAITING_REWORK : implementation defect
-    RUNNING --> SAFE_STOPPED : policy FAIL, retries exhausted, compensation failure, readiness blocked, restart
+    RUNNING --> SAFE_STOPPED : policy FAIL, retries exhausted, compensation failure, readiness blocked, inconsistent state, restart
     RUNNING --> FAILED : other permanent failure
     RUNNING --> COMPLETED : FINAL_REPORT succeeded
     AWAITING_CLARIFICATION --> RUNNING : clarify (replan)
@@ -338,7 +338,7 @@ flowchart TD
 | Fallback | DOCS only |
 | Rollback | a failed attempt commits nothing (output and SUCCEEDED commit together) |
 | Compensation | idempotent sweep of the run's probe links: after a failed TEST attempt, before every TEST attempt, at run end, on terminate, at startup |
-| Safe-stop / resume | resume (HUMAN) re-runs only PENDING nodes — in a partial parallel failure only the failed branch |
+| Safe-stop / resume | recoverable: retries exhausted without fallback, restart interruption; non-recoverable: policy FAIL, rejected exception, compensation failure, blocked readiness, inconsistent run state. Resume (HUMAN, recoverable only) re-runs only PENDING nodes — in a partial parallel failure only the failed branch |
 | Startup recovery | a run found RUNNING after a stop: running stage rolled back, sweep, SAFE_STOPPED `INTERRUPTED` (recoverable); waiting runs untouched |
 | Fault injection | `TRANSIENT`, `PERMANENT`, `TIMEOUT`, `DELAY`, `COMPENSATION_FAILURE` on automated nodes, fired after the executor's work; off unless the `demo` profile; effects labelled `injected` |
 
@@ -397,7 +397,7 @@ the approval and any evidence.
 
 ## 15. Testing architecture
 
-276 automated tests in 45 classes (`./mvnw verify`), plus 3 tagged `measurement`.
+277 automated tests in 45 classes (`./mvnw verify`), plus 3 tagged `measurement`.
 
 | Layer | Examples |
 |---|---|

@@ -63,7 +63,7 @@ The quickstart walks through the three scenarios and every recovery demonstratio
 
 - **Test-first** for every behavior task: tests were written and run red before implementation, and each
   phase ended with a full green `./mvnw verify` (results per phase in the traceability matrix).
-- **276 automated tests** (JUnit 5, MockMvc, Spring Boot test): URL rules and API, concurrency (50
+- **277 automated tests** (JUnit 5, MockMvc, Spring Boot test): URL rules and API, concurrency (50
   parallel creates/redirects), storage failure, engine ordering and parallelism, human gates and actor
   rules, policies, every recovery path through injected faults, crash-and-restart recovery on a real
   database file, replanning atomicity, determinism, metrics, the OpenAPI contract, and the three scenarios.
