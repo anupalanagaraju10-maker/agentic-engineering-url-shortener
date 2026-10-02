@@ -16,7 +16,7 @@ local Maven cache already holds Spring Boot 3.5.16, H2 2.3.232, Flyway 11.7.2.
 - **Decision**: Java 21, Spring Boot 3.5.x (pinned to the latest 3.5 patch at scaffolding;
   3.5.16 is cached locally), Maven with the Maven Wrapper (`mvnw`) committed.
 - **Rationale**: Matches the constitution's preferred planning inputs; the candidate's toolchain
-  is already installed; 3.5.x is the most widely understood Spring Boot line and works offline
+  is already installed; 3.5.x is the most widely understood Spring Boot line and, once its artifacts are cached, works offline
   from the local cache. The wrapper makes clean-clone verification reproducible.
 - **Alternatives**: Spring Boot 4.0 (newer, but modular starters and Jackson 3 add migration
   risk with no requirement benefit); plain Java without Spring (more hand-written HTTP,
@@ -93,38 +93,110 @@ local Maven cache already holds Spring Boot 3.5.16, H2 2.3.232, Flyway 11.7.2.
 - **Alternatives**: `IMPLEMENT` as a simulated change plan (rejected at architecture review);
   LLM code generation in-app (rejected at AMB-001).
 
-## R5. Ambiguity detection (FR-ORC-016)
+## R5. Ambiguity detection (FR-ORC-016) — exact rule definitions
 
-- **Decision**: A small, documented rule set evaluated on the normalized requirement using a
-  fixed vocabulary of URL-shortener capabilities:
-  - **AMB-R1 Unclear outcome** — no recognizable capability *and* no observable outcome phrase.
-  - **AMB-R2 Missing parameter** — a capability that needs a condition/trigger/duration/threshold
-    (e.g., expiration) is requested without one, and without stating that the client supplies it
-    (e.g., "optional expiration" per link).
-  - **AMB-R3 Conflict** — mutually exclusive statements (e.g., "never expire" with "expire").
-  - **AMB-R4 Multiple interpretations** — a modifying requirement whose scope is unqualified
-    (e.g., "links" without *new* / *existing* / *all*).
-  Each finding records rule id, matched text and explanation. Missing edge-case detail never
-  triggers a rule.
-- **Expected results**: SCN-A → no findings. SCN-B → no findings ("optional" ⇒ client-supplied
-  parameter; "existing links" ⇒ qualified scope). SCN-C "Make links expire." → AMB-R2 (no
-  duration or trigger) and AMB-R4 (which links).
-- **Rationale**: Deterministic and explainable; the limitation (keyword rules, not language
-  understanding) is documented.
+- **Decision**: four deterministic rules evaluated on the **normalized** current requirement (the
+  original text plus any recorded clarifications).
+  - **Normalization**: lowercase; replace `-` and `_` with a space; collapse whitespace; keep
+    digits; strip other punctuation. Matching is whole-word (or whole-phrase) on the normalized
+    text.
+  - **No other interpretation is applied**: no synonyms beyond the lists below, no stemming beyond
+    the listed forms, no AI/NLP. Each finding records the rule id, the matched (or missing) terms
+    and a fixed explanation.
+
+  **Capability terms** (also used by UNDERSTAND):
+
+  | Capability | Terms |
+  |---|---|
+  | CREATE_LINK | `short link`, `short links`, `short url`, `shorten`, `create a link`, `create link` |
+  | REDIRECT | `redirect`, `redirects`, `redirected` |
+  | ANALYTICS | `redirect count`, `last redirect`, `analytics`, `click count` |
+  | IDEMPOTENCY | `idempotency`, `idempotent`, `duplicate request`, `duplicate requests` |
+  | EXPIRATION | `expire`, `expires`, `expired`, `expiration`, `expiry` |
+
+  **Rules**:
+  - **AMB-R1 Unclear outcome** fires when the requirement contains **no** capability term **and
+    no** outcome verb from: `return`, `returns`, `respond`, `responds`, `redirect`, `redirects`,
+    `record`, `records`, `reject`, `rejects`, `refuse`, `refuses`, `create`, `creates`, `store`,
+    `stores`, `show`, `shows`, `log`, `logs`, `block`, `blocks`, `allow`, `allows`. If an outcome
+    verb is present but no capability term is, R1 does not fire; `DECOMPOSE` then fails
+    `PERMANENT` (`INVALID_INPUT`, out-of-vocabulary) instead of guessing (CHK005).
+  - **AMB-R2 Missing parameter** applies only to EXPIRATION, the only parameterized capability.
+    It fires when an EXPIRATION term is present and **none** of the following is present:
+    - a client-supplied marker: `optional`, `per link`, `client may supply`, `client supplies`,
+      `supplied by the client`;
+    - a duration: regex `\b\d+ (second|minute|hour|day|week|month|year)s?\b`;
+    - an absolute time: `expiration time`, `expiry time`, `expires at`, `expiresat`,
+      `absolute time`, `date`;
+    - a trigger: regex `\bafter \d+ (click|redirect|visit)s?\b`.
+  - **AMB-R3 Conflict** fires when **both** members of a pair are present:
+    - pair E: universal expiry `(all|every|each) links? (must |will |should )?expire` **and**
+      universal non-expiry `(all|every|each|no) links? (must |will |should )?(never|not) expire`;
+    - pair D: `allow duplicates` / `always create a new link` **and** `never create duplicates` /
+      `deduplicate`;
+    - pair R: `temporary redirect` **and** `permanent redirect`.
+  - **AMB-R4 Multiple interpretations** fires when a change verb is present — `make`, `add`,
+    `change`, `modify`, `update`, `apply`, `enable`, `require` — together with the bare plural
+    `links`, and **none** of these scope qualifiers appears anywhere in the requirement: `new`,
+    `newly created`, `existing`, `all`, `every`, `each`, `per link`, `optional`, `specific`,
+    `selected`, `links created after`, `links created before`.
+- **Expected results**:
+  - SCN-A ⇒ none.
+  - SCN-B ⇒ none: `optional` satisfies R2, and `existing`/`optional` satisfy R4.
+  - SCN-C "Make links expire." ⇒ R2 (no parameter) and R4 (`make` + `links`, no qualifier).
+  - The quickstart clarification ("optional per link … absolute expiration time … existing links
+    are unaffected") ⇒ none.
+  - A requirement missing only edge-case detail ⇒ none.
+- **Rationale**: Bounded lists make classification reproducible by any two reviewers (CHK011).
+  Their limits are the documented limitation.
 - **Alternatives**: Operator-flagged ambiguity only (rejected at clarification); scoring
-  heuristics (opaque).
+  heuristics (opaque); NLP/AI interpretation (rejected at AMB-001).
 
 ## R6. Greenfield vs brownfield branch and the capability registry
 
 - **Decision**: A static **capability registry** lists the URL-shortener capabilities the
   workflow understands (vocabulary, design template, acceptance probes) and, for each, its
   **status**: `IMPLEMENTED` (with components, endpoints, migrations, tests) or `PLANNED`. A
-  requirement is **brownfield** when it modifies a capability whose status is `IMPLEMENTED`
-  (change verbs such as *add … to existing*, *change*, *modify*, or explicit *existing*);
-  otherwise greenfield. `IMPACT_ANALYSIS` builds its report (all ten areas of FR-SCN-002) from
+  requirement is **brownfield** when it modifies existing behavior. Exact rule (clarified
+  2026-10-02 with the R5 normalization; behavior unchanged):
+  - the normalized requirement contains the word `existing`; **or**
+  - it contains an R6 behavior change verb (`add`, `change`, `modify`, `replace`, `remove`,
+    `extend`, `introduce`, `increase`, `decrease`, `convert`, `migrate`) **and** at least one
+    matched capability is `IMPLEMENTED`.
+
+  Otherwise it is greenfield. Results: SCN-A greenfield, SCN-B brownfield, and the SCN-C
+  quickstart clarification brownfield. `IMPACT_ANALYSIS` builds its report (all ten areas of FR-SCN-002) from
   the registry. A unit test verifies that every `IMPLEMENTED` entry references real classes and
   test files, so the registry cannot silently drift from the code. The registry entry for a
   capability moves from `PLANNED` to `IMPLEMENTED` in the same change that implements it.
+- **Recorded behavior (CHK012)**: the approved behavior statements below, held in the registry
+  with their requirement IDs, are the only "recorded behavior". Each is taken from approved spec
+  requirements; none adds behavior.
+
+  | Capability | Recorded behavior statements | Requirement IDs |
+  |---|---|---|
+  | CREATE_LINK | B1 a client can create a short link for an absolute `http`/`https` address with a non-empty host · B2 other schemes (incl. `javascript`, `file`, `data`) are refused · B3 `localhost` and literal loopback/private hosts are refused without name resolution · B4 each code is unique, URL-safe, 7 characters, regenerated at most 5 times on collision · B5 addresses up to 2,048 characters · B6 if storage is unavailable, creation fails with service-unavailable and no code | FR-URL-001..005, 013, 016; PVT-006/007 |
+  | REDIRECT | B1 an active link redirects to its original address · B2 an unknown code returns not-found · B3 if storage is unavailable, a redirect returns service-unavailable · B4 an analytics-recording failure does not prevent the redirect | FR-URL-006, 007, 013, 017 |
+  | ANALYTICS | B1 each successful redirect increments the link's count and sets its last-redirect time, readable by clients · B2 not-found and expired attempts are not counted · B3 no count is lost under concurrent redirects | FR-URL-010, 012 |
+  | IDEMPOTENCY | B1 a create request may carry an idempotency key · B2 same key + same content returns the first result · B3 same key + different content is a conflict · B4 no key means a new link | FR-URL-011 |
+  | EXPIRATION | B1 a client may optionally supply an absolute expiration time per link · B2 it must be in the future · B3 after it, the link returns an expired result distinct from not-found, with no redirect and no count · B4 a link without an expiration never expires (existing links are unaffected) | FR-URL-008, 009 |
+
+  **`implementationRequired = false`** only if all three of these hold:
+  1. every requested capability is `IMPLEMENTED`;
+  2. the requirement contains no change verb aimed at behavior — `add`, `change`, `modify`,
+     `replace`, `remove`, `extend`, `introduce`, `increase`, `decrease`, `convert`, `migrate`;
+  3. it contains none of the out-of-record detail patterns — the R2 duration and trigger
+     regexes, `default`, `maximum`, `max`, `minimum`, `min`, `renew`, `notify`, `delete`,
+     `purge`, `archive`.
+
+  Otherwise it is `true`. A human reviews the result at design approval.
+- **Approved-requirement conflict rule (CHK034)**: `/clarify` returns `409 CHANGE_CONTROL_REQUIRED`
+  when the clarification matches a contradiction pattern of a recorded statement:
+  - EXPIRATION B4: `default expir`, `(all|every|each) links? (must |will |should )?expire`,
+    `links without (an )?expiration (must |will |should )?expire`;
+  - CREATE_LINK B2/B3: `allow (javascript|file|data)`, `allow localhost`,
+    `allow private (ip|address)`;
+  - IDEMPOTENCY B4: `deduplicate`, `same url returns the same link`.
 - **Rationale**: A credible, checkable impact analysis without code parsing; the greenfield /
   brownfield distinction reflects the actual state of the codebase.
 - **Alternatives**: Static code analysis (heavy); free-text impact analysis (not verifiable).
@@ -242,8 +314,34 @@ local Maven cache already holds Spring Boot 3.5.16, H2 2.3.232, Flyway 11.7.2.
   `IMPLEMENT` cannot become eligible without it. Bounded retries are also structural (PVT-001).
 - **Rationale**: Each domain in FR-POL-002 is covered once. All four result values are
   demonstrable. Every check is a few lines of deterministic code. There is no policy engine.
-- **Limitation**: DEP-01 checks the design's declared dependencies against the approved list; it
-  is not a license scanner of the build.
+- **PRIV-01 vocabulary (CHK018)**: `EXCEPTION_REQUESTED` when the normalized requirement contains
+  any of: `ip address`, `visitor ip`, `client ip`, `user agent`, `email`, `e mail`, `phone`,
+  `location`, `geolocation`, `geo location`, `device id`, `cookie`, `browser fingerprint`,
+  `visitor name`, `user identity`, `personal data`, `pii`, `track users`, `user tracking`.
+  Otherwise `PASS`.
+- **DEP-01 approved dependency list (CHK018)**: these are the direct dependencies from plan and
+  tasks. Each licence was **verified on 2026-10-02 from POM metadata**: the local Maven repository,
+  or Maven Central where the artifact is not cached.
+
+  | Dependency (version) | Scope | License | Verified from |
+  |---|---|---|---|
+  | `org.springframework.boot:spring-boot-starter-parent` 3.5.16 | build parent | Apache License 2.0 | local POM |
+  | `org.springframework.boot:spring-boot-starter-web` 3.5.16 | compile | Apache License 2.0 | local POM |
+  | `org.springframework.boot:spring-boot-starter-data-jpa` 3.5.16 | compile | Apache License 2.0 | Maven Central POM (not in local cache) |
+  | `org.springframework.boot:spring-boot-starter-validation` 3.5.16 | compile | Apache License 2.0 | local POM |
+  | `org.springframework.boot:spring-boot-starter-actuator` 3.5.16 | compile | Apache License 2.0 | local POM |
+  | `org.flywaydb:flyway-core` 11.7.2 (Boot-managed) | compile | Apache License 2.0 (declared in parent `flyway-parent` 11.7.2) | local POM |
+  | `com.h2database:h2` 2.3.232 (Boot-managed) | runtime | MPL 2.0 or EPL 1.0 | local POM |
+  | `org.springframework.boot:spring-boot-starter-test` 3.5.16 | test | Apache License 2.0 | local POM |
+
+  DEP-01 passes a design dependency only if it is on this list. A design that adds none gets
+  `NOT_APPLICABLE`.
+- **Noted transitive license (for human awareness, not a DEP-01 rule; acknowledged and accepted by
+  the human candidate 2026-10-02)**:
+  `org.hibernate.orm:hibernate-core` 6.6.53.Final, which is pulled in by `spring-boot-starter-data-jpa`
+  and Boot-managed, is **GNU LGPL v2.1 or later** (Maven Central POM, verified 2026-10-02).
+- **Limitation**: DEP-01 checks the design's declared direct dependencies against the approved
+  list. It is not a license scanner of the full transitive build.
 
 ## R12. Decisions, actors and identity
 
@@ -356,6 +454,83 @@ CHK002–CHK038). They were requested by the human candidate after `/speckit.che
   - accepting conflicting clarifications: silent override of approved requirements;
   - ending a run `FAILED` on an implementation defect: discards correctable work;
   - fault injection on by default: demonstration data mixes with real runs.
+
+## R20. Checklist gate clarifications — round 2 (2026-10-02)
+
+Clarifications only; no architectural decision changes.
+
+- **CHK008 External repository changes**: replanning or rework invalidates recorded
+  implementation evidence. It cannot and does not undo Git changes. Reverting or adjusting
+  repository changes is an external engineering responsibility, done in Git under SpecKit tasks.
+  Downstream validation runs only after new evidence with a new revision is recorded.
+- **CHK013 Material requirement change**: a change is material when it changes any of:
+  - approved observable behavior;
+  - acceptance criteria;
+  - capability scope;
+  - the API or data contract;
+  - security or privacy constraints;
+  - a policy outcome;
+  - other approved requirement semantics.
+
+  A pure wording or documentation clarification that alters none of these is non-material. A
+  HUMAN initiates a material change through `requirement-change`, and the runtime treats every
+  such call as material. The runtime attempts no open-ended semantic inference about materiality.
+- **CHK015 Determinism (FR-ORC-012)**: "same stage path" means the same semantic outcome:
+  - nodes executed or skipped;
+  - branch outcomes;
+  - gate locations;
+  - stage success/failure classification (class and code);
+  - requirement and capability decisions (findings, change type, `implementationRequired`,
+    policy results).
+
+  It does not require identical timestamps, run or correlation IDs, thread names, generated
+  short codes, probe identifiers, or ordering of independent events emitted concurrently inside
+  one parallel wave.
+- **CHK024 Approval-before-implementation**:
+  - `IMPLEMENT` evidence is refused unless the run is `AWAITING_IMPLEMENTATION` after a valid
+    `DESIGN_APPROVAL` at the current plan version.
+  - The evidence record's timestamp must be later than that approval decision's timestamp.
+  - Live scenario traceability shows approval before evidence, with decision timestamps and the
+    commit date of the cited revision.
+  - **Limitation**: the runtime cannot observe when an engineer began editing files outside the
+    application, so it does not claim to prove that external coding did not start early.
+- **CHK027 Observable parallelism (SC-002)**: overlap is proven with controlled instrumentation:
+  - sleeping stub executors in `WorkflowEngineTest`;
+  - the injected `DELAY` fault on the real `TEST`/`DOCS`/`SECURITY` executors.
+
+  The delay does not simulate parallelism; it only makes the real scheduler's concurrent execution
+  measurable. Normal execution uses the same scheduler without delay. Live runs record intervals
+  and thread names, and claim overlap only where the recorded intervals show it.
+- **CHK028 SC-003 population**:
+  - the denominator is every observed attempt to cross a `HUMAN_GATE`, both in the automated gate
+    and scenario acceptance tests and in the three recorded live scenario demonstrations;
+  - for each attempt, progression beyond the gate must be preceded by a valid HUMAN decision for
+    that gate at the current `planVersion`;
+  - expected result: 100%.
+- **CHK033 Startup recovery**: at startup the engine inspects every non-terminal run.
+  - A run that is `RUNNING` with a stage `RUNNING`: attempt rollback, then compensation, then
+    `SAFE_STOPPED` (recoverable, `INTERRUPTED`).
+  - A run that is `RUNNING` with no stage `RUNNING` (an interrupted orchestration boundary): the
+    idempotent compensation sweep, then `SAFE_STOPPED` (recoverable, `INTERRUPTED`).
+  - Waiting runs (`AWAITING_*`) are untouched.
+  - Successful stages are never re-executed automatically; continuing requires HUMAN `resume`.
+- **CHK039 Whole-command safety bound**: one HTTP command advances through at most **5 automated
+  waves** before reaching a gate, the external action or a terminal state. The largest case is
+  run creation (INTAKE → UNDERSTAND → DECOMPOSE → IMPACT_ANALYSIS → DESIGN); resume and
+  requirement change are no larger.
+  - Worst case per wave = 3 attempts × 5 s timeout + 0.1 s + 0.2 s backoff = 15.3 s, so 5 waves ≈
+    76.5 s.
+  - The DOCS fallback adds at most one more 5 s attempt, but only in the 2-wave evidence command
+    (≈ 35.6 s).
+  - **Stated safety bound: 90 s per command**, including margin for compensation and replan
+    transactions.
+
+  This is a worst-case safety bound under repeated injected failures, **not** a performance
+  target. PVT-004 (normal SCN-A automated-active duration < 60 s, measured and reported) is
+  unchanged.
+- **Build note (factual correction)**: `spring-boot-starter-data-jpa` 3.5.16 and Hibernate are
+  not in the local Maven cache. The first build downloads them from Maven Central; later builds
+  run offline.
 
 ## Open items
 

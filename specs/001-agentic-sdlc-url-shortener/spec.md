@@ -56,6 +56,16 @@ criteria), `PVT` (validation targets), `ASM` (assumptions), `CON` (constraints),
   approve PVT-001, PVT-002, PVT-006, PVT-007, PVT-008 as proposed; PVT-003, PVT-004, PVT-005 are
   measured and reported as demonstration figures but do not block release.
 
+### Session 2026-10-02 (orchestration checklist gate)
+
+- Q: Which safe-stop conditions are recoverable? → A: Copied from the approved plan and ADR-0005;
+  no new behavior. Recoverable: retries exhausted without fallback; restart interruption.
+  Not recoverable: mandatory policy FAIL; rejected policy exception; invalid state; compensation
+  failure (FR-REL-008, CHK009).
+- Q: Should the official assessment brief be copied into the repository? → A: No. ASM-001 is kept
+  as an explicitly accepted assumption; the brief remains the external authoritative source above
+  repository artifacts (CHK042).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Govern a clear requirement through the workflow (Priority: P1)
@@ -405,7 +415,13 @@ audit trail and metrics for a set of demonstration runs.
   safe; run state is found invalid or inconsistent; or rollback/compensation fails to restore a
   safe state.
 - **FR-REL-008** [C]: A safe-stop MUST preserve run state, prior stage outcomes, the failure
-  reason, the audit history, the run identifier and whether the run is recoverable.
+  reason, the audit history, the run identifier and whether the run is recoverable. The
+  recoverable flag is set per safe-stop trigger (clarified 2026-10-02; the semantics come from the
+  approved plan and ADR-0005):
+  - `recoverable = true`: retries exhausted with no fallback; process restart interruption
+    (`INTERRUPTED`).
+  - `recoverable = false`: mandatory policy `FAIL`; rejected policy exception; invalid or
+    inconsistent run state; compensation failure.
 - **FR-REL-009** [C]: Resuming a recoverable run MUST reload persisted state, MUST NOT re-execute
   succeeded stages, MUST respect recorded human decisions and MUST continue only eligible work.
   Resuming a completed or non-recoverable run MUST be refused.
@@ -576,9 +592,11 @@ The candidate's input does not supply numbers; these values were proposed by the
 
 ## Assumptions (`ASM`)
 
-- **ASM-001**: The official assignment text is not stored in this repository; the candidate's
-  `/speckit.specify` input is treated as an accurate statement of it. Requirements tagged [C]
-  trace to that input or the constitution.
+- **ASM-001** *(explicitly accepted by the human candidate, 2026-10-02)*: The official assessment
+  brief is **not** copied into this repository. It remains an external authoritative source that
+  ranks **above** all repository artifacts (constitution, Governance: conflict resolution). The
+  candidate's `/speckit.specify` input is treated as an accurate statement of it. Requirements
+  tagged [C] trace to that input or the constitution.
 - **ASM-002**: There is a single operator role (the human candidate/reviewer). Actor identity on
   decisions is supplied by the operator and is not authenticated (see EXC-003); this is a
   documented assessment limitation.

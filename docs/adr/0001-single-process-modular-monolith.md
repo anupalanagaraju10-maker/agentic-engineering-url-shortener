@@ -1,7 +1,7 @@
 # ADR-0001: Single-process modular monolith on Java 21 / Spring Boot / Maven
 
 - **Status**: Accepted (2026-10-02, approved by the human candidate)
-- **Date**: 2026-10-02
+- **Date**: 2026-10-02 · *Clarified 2026-10-02: factual build wording corrected; no decision change*
 - **Deciders**: human candidate (approval authority); drafted by Claude Code
 - **Plan**: [plan.md](../../specs/001-agentic-sdlc-url-shortener/plan.md) rev. 3 §Architecture Overview,
   §Technical Context, §Project Structure · **Research**: R1, R17, R18
@@ -50,7 +50,8 @@ the local Maven cache.
 ## Rationale
 
 - Option 1 meets every driver with the least code and infrastructure. It also uses the toolchain
-  already installed, and builds offline from the local cache.
+  already installed. Once its artifacts are cached it builds offline; the first build downloads
+  the artifacts not yet cached (e.g. `spring-boot-starter-data-jpa`, Hibernate) from Maven Central.
 - Option 2 (Boot 4.0) adds migration risk, because of modular starters and Jackson 3, and no
   requirement benefits from it.
 - Option 3 (plain Java) means more hand-written HTTP, validation and persistence code to review.
@@ -77,6 +78,7 @@ already one-way. Migrating to Spring Boot 4.x is a contained upgrade.
 
 ## Validation
 
-- `./mvnw verify` builds offline from the local cache.
+- `./mvnw verify` succeeds. The first build may download uncached artifacts; later builds succeed
+  offline.
 - `PlaneBoundaryTest` passes.
 - The application starts and `GET /actuator/health` reports `UP`.

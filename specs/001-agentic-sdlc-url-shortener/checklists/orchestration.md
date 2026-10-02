@@ -17,69 +17,69 @@ orchestration (probe links).
 
 ## Requirement Completeness
 
-- [ ] CHK001 - Are entry and exit conditions documented for every one of the 14 nodes, including the three human gates and the `IMPLEMENT` external action? [Completeness, Spec §FR-ORC-008, Plan §Workflow DAG and stage contracts]
-- [ ] CHK002 - Is it specified which human actions can end a run from each waiting state, not only from `AWAITING_REWORK`? For example, can a run in `AWAITING_CLARIFICATION` or `AWAITING_IMPLEMENTATION` be terminated? [Gap, Spec §FR-HUM-005, Plan §State model]
-- [ ] CHK003 - Is the outcome defined for a run left indefinitely in a waiting state, given that gates and the external action have no timeout? [Gap, Spec §FR-REL-004, ADR-0005]
-- [ ] CHK004 - Are requirements defined for implementation evidence whose `requirementIds` do not match the run's normalized requirement or decomposed tasks? [Gap, ADR-0004 §Decision 3]
-- [ ] CHK005 - Does the spec or plan define how the workflow handles a requirement whose capability falls outside the known vocabulary? Is the planned `DECOMPOSE` permanent failure traceable to a requirement? [Gap, Spec §FR-ORC-016, Research R5/R6]
-- [ ] CHK006 - Is the behavior defined when an approved policy exception reaches its expiry or review condition during or after a run? [Gap, Spec §FR-POL-005]
-- [ ] CHK007 - Are replanning requirements defined for atomicity, i.e. what state is guaranteed if a failure occurs partway through a replan (reset, invalidation, version bump)? [Gap, Spec §FR-ORC-013, ADR-0004 §Decision 6]
-- [ ] CHK008 - Is it specified whether the system has any obligation regarding external repository changes made before a replan or invalidation, given it can only invalidate recorded evidence? [Gap, Plan §IMPLEMENT semantics, ADR-0003 §Decision 8]
-- [ ] CHK009 - Is the "recoverable" flag defined for every safe-stop trigger, and is that definition stated in the spec and not only in the plan and ADR? [Completeness, Spec §FR-REL-007/008, ADR-0005 §Decision 7]
-- [ ] CHK010 - Are requirements defined for a clarification that still leaves material ambiguity, so that repeated clarification rounds and plan-version increments are covered? [Coverage, Spec §FR-SCN-003, Plan §SCN-C behavior]
+- [x] CHK001 - Are entry and exit conditions documented for every one of the 14 nodes, including the three human gates and the `IMPLEMENT` external action? [Completeness, Spec §FR-ORC-008, Plan §Workflow DAG and stage contracts]
+- [x] CHK002 - Is it specified which human actions can end a run from each waiting state, not only from `AWAITING_REWORK`? For example, can a run in `AWAITING_CLARIFICATION` or `AWAITING_IMPLEMENTATION` be terminated? [Gap, Spec §FR-HUM-005, Plan §State model]
+- [x] CHK003 - Is the outcome defined for a run left indefinitely in a waiting state, given that gates and the external action have no timeout? [Gap, Spec §FR-REL-004, ADR-0005]
+- [x] CHK004 - Are requirements defined for implementation evidence whose `requirementIds` do not match the run's normalized requirement or decomposed tasks? [Gap, ADR-0004 §Decision 3]
+- [x] CHK005 - Does the spec or plan define how the workflow handles a requirement whose capability falls outside the known vocabulary? Is the planned `DECOMPOSE` permanent failure traceable to a requirement? [Gap, Spec §FR-ORC-016, Research R5/R6]
+- [x] CHK006 - Is the behavior defined when an approved policy exception reaches its expiry or review condition during or after a run? [Gap, Spec §FR-POL-005]
+- [x] CHK007 - Are replanning requirements defined for atomicity, i.e. what state is guaranteed if a failure occurs partway through a replan (reset, invalidation, version bump)? [Gap, Spec §FR-ORC-013, ADR-0004 §Decision 6]
+- [x] CHK008 - Is it specified whether the system has any obligation regarding external repository changes made before a replan or invalidation, given it can only invalidate recorded evidence? [Gap, Plan §IMPLEMENT semantics, ADR-0003 §Decision 8]
+- [x] CHK009 - Is the "recoverable" flag defined for every safe-stop trigger, and is that definition stated in the spec and not only in the plan and ADR? [Completeness, Spec §FR-REL-007/008, ADR-0005 §Decision 7]
+- [x] CHK010 - Are requirements defined for a clarification that still leaves material ambiguity, so that repeated clarification rounds and plan-version increments are covered? [Coverage, Spec §FR-SCN-003, Plan §SCN-C behavior]
 
 ## Requirement Clarity
 
-- [ ] CHK011 - Are ambiguity rules AMB-R1..R4 stated precisely enough, with vocabulary and trigger conditions, that two reviewers would classify the same requirement identically? [Clarity, Spec §FR-ORC-016, Research R5]
-- [ ] CHK012 - Is `implementationRequired` defined with objective criteria (registry status, change verbs, "behavior outside recorded behavior")? Is "recorded behavior" itself defined? [Clarity, ADR-0004 §Decision 3, Research R4]
-- [ ] CHK013 - Is "material" in "material upstream change" defined, and is it stated who decides materiality: the operator by calling requirement-change, or a rule? [Ambiguity, Spec §FR-ORC-013, Spec §NFR-008]
-- [ ] CHK014 - Is the set of nodes a human may choose as a rework starting point after each gate's rejection explicitly bounded ("upstream of the rejected gate")? [Clarity, Spec §FR-HUM-005, ADR-0004 §Decision 4]
-- [ ] CHK015 - Does "same stage path" in the determinism requirement exclude nondeterministic aspects such as timestamps, thread names, probe codes and the event order within a parallel wave? [Clarity, Spec §FR-ORC-012]
-- [ ] CHK016 - Is "human wait" in "end-to-end duration excluding human wait" defined, and does it include `AWAITING_IMPLEMENTATION` time spent on external engineering? [Ambiguity, Spec §FR-OBS-004, Plan §Recovery incidents and MTTR]
-- [ ] CHK017 - Is it stated whether MTTR for incidents recovered by human-initiated `RESUME` includes the human's reaction time, and is that choice justified? [Ambiguity, Spec §FR-OBS-004, ADR-0005 §Decision 11]
-- [ ] CHK018 - Are the five policy checks' rules (PRIV-01, SEC-01, CHG-01, DEP-01, AUD-01) defined with deterministic triggering criteria, such as the vocabulary for "personal data" and the approved dependency list? [Clarity, Spec §FR-POL-002/003, Research R11]
+- [x] CHK011 - Are ambiguity rules AMB-R1..R4 stated precisely enough, with vocabulary and trigger conditions, that two reviewers would classify the same requirement identically? [Clarity, Spec §FR-ORC-016, Research R5]
+- [x] CHK012 - Is `implementationRequired` defined with objective criteria (registry status, change verbs, "behavior outside recorded behavior")? Is "recorded behavior" itself defined? [Clarity, ADR-0004 §Decision 3, Research R4]
+- [x] CHK013 - Is "material" in "material upstream change" defined, and is it stated who decides materiality: the operator by calling requirement-change, or a rule? [Ambiguity, Spec §FR-ORC-013, Spec §NFR-008]
+- [x] CHK014 - Is the set of nodes a human may choose as a rework starting point after each gate's rejection explicitly bounded ("upstream of the rejected gate")? [Clarity, Spec §FR-HUM-005, ADR-0004 §Decision 4]
+- [x] CHK015 - Does "same stage path" in the determinism requirement exclude nondeterministic aspects such as timestamps, thread names, probe codes and the event order within a parallel wave? [Clarity, Spec §FR-ORC-012]
+- [x] CHK016 - Is "human wait" in "end-to-end duration excluding human wait" defined, and does it include `AWAITING_IMPLEMENTATION` time spent on external engineering? [Ambiguity, Spec §FR-OBS-004, Plan §Recovery incidents and MTTR]
+- [x] CHK017 - Is it stated whether MTTR for incidents recovered by human-initiated `RESUME` includes the human's reaction time, and is that choice justified? [Ambiguity, Spec §FR-OBS-004, ADR-0005 §Decision 11]
+- [x] CHK018 - Are the five policy checks' rules (PRIV-01, SEC-01, CHG-01, DEP-01, AUD-01) defined with deterministic triggering criteria, such as the vocabulary for "personal data" and the approved dependency list? [Clarity, Spec §FR-POL-002/003, Research R11]
 
 ## Requirement Consistency
 
-- [ ] CHK019 - Is the provenance mapping (spec's "actual execution, simulated, injected failure" vs `ACTUAL`/`EXTERNAL`/`FALLBACK` + `INJECTED`) recorded where reviewers will find it for both the spec and the ADR? [Consistency, Spec §FR-ORC-014, ADR-0003 §Decision 9]
-- [ ] CHK020 - Is the spec's Key Entity "Recovery Record" consistently realized as a view derived from events across the data model, ADR-0002 and ADR-0005, with every attribute traceable to an event field? [Consistency, Spec §Key Entities, ADR-0005 §Decision 11]
-- [ ] CHK021 - Does the spec's state requirement ("waiting for a human decision") align with `AWAITING_IMPLEMENTATION`, which an `AGENT` may satisfy? [Consistency, Spec §FR-ORC-011, ADR-0003 §Decision 11]
-- [ ] CHK022 - The spec defines only human and system actors, while the plan and ADR introduce `AGENT`. Is the AGENT role reconciled with FR-HUM-006 ("system itself or empty") and NFR-009 (controlled autonomy)? [Consistency, Spec §FR-HUM-006, Spec §NFR-009, ADR-0004 §Decision 1]
-- [ ] CHK023 - The spec doesn't state who may resume. Is the plan's HUMAN-only rule for resume consistent with the spec, or is it an unrecorded derived requirement? [Consistency, Spec §FR-REL-009, ADR-0004 §Decision 1]
-- [ ] CHK024 - Is "Implementation MUST NOT start before that approval" consistent with an external action the system cannot observe? Is the verifiable form of the requirement stated (evidence not accepted before approval)? [Conflict, Spec §FR-SCN-002, Plan §IMPLEMENT semantics]
-- [ ] CHK025 - Is the spec's requirement for an irreversible-action gate consistent with the plan's statement that no destructive or irreversible action exists, and is that conclusion recorded as satisfying the requirement? [Consistency, Spec §FR-HUM-001, ADR-0004 §Decision 8]
-- [ ] CHK026 - Is the plan-version definition ("revision of decomposition/design") consistent with bumping the plan version on rework of non-design nodes such as `DOCS`? [Consistency, Spec §Terminology, ADR-0004 §Decision 6]
+- [x] CHK019 - Is the provenance mapping (spec's "actual execution, simulated, injected failure" vs `ACTUAL`/`EXTERNAL`/`FALLBACK` + `INJECTED`) recorded where reviewers will find it for both the spec and the ADR? [Consistency, Spec §FR-ORC-014, ADR-0003 §Decision 9]
+- [x] CHK020 - Is the spec's Key Entity "Recovery Record" consistently realized as a view derived from events across the data model, ADR-0002 and ADR-0005, with every attribute traceable to an event field? [Consistency, Spec §Key Entities, ADR-0005 §Decision 11]
+- [x] CHK021 - Does the spec's state requirement ("waiting for a human decision") align with `AWAITING_IMPLEMENTATION`, which an `AGENT` may satisfy? [Consistency, Spec §FR-ORC-011, ADR-0003 §Decision 11]
+- [x] CHK022 - The spec defines only human and system actors, while the plan and ADR introduce `AGENT`. Is the AGENT role reconciled with FR-HUM-006 ("system itself or empty") and NFR-009 (controlled autonomy)? [Consistency, Spec §FR-HUM-006, Spec §NFR-009, ADR-0004 §Decision 1]
+- [x] CHK023 - The spec doesn't state who may resume. Is the plan's HUMAN-only rule for resume consistent with the spec, or is it an unrecorded derived requirement? [Consistency, Spec §FR-REL-009, ADR-0004 §Decision 1]
+- [x] CHK024 - Is "Implementation MUST NOT start before that approval" consistent with an external action the system cannot observe? Is the verifiable form of the requirement stated (evidence not accepted before approval)? [Conflict, Spec §FR-SCN-002, Plan §IMPLEMENT semantics]
+- [x] CHK025 - Is the spec's requirement for an irreversible-action gate consistent with the plan's statement that no destructive or irreversible action exists, and is that conclusion recorded as satisfying the requirement? [Consistency, Spec §FR-HUM-001, ADR-0004 §Decision 8]
+- [x] CHK026 - Is the plan-version definition ("revision of decomposition/design") consistent with bumping the plan version on rework of non-design nodes such as `DOCS`? [Consistency, Spec §Terminology, ADR-0004 §Decision 6]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK027 - Can SC-002 (overlapping parallel intervals) be met without injected delays? If not, is reliance on an injected `DELAY` acknowledged in the acceptance criterion? [Measurability, Spec §SC-002, ADR-0003 §Decision 5]
-- [ ] CHK028 - Is SC-003 ("100% of attempts, no stage beyond a gate starts before the decision") defined over an enumerable set of attempts, so that it can be objectively evaluated? [Measurability, Spec §SC-003]
-- [ ] CHK029 - Does SC-007 ("plan version increases by exactly one per material clarification") account for clarification rounds and rework bumps within the same run? [Measurability, Spec §SC-007]
-- [ ] CHK030 - Is SC-010 (metrics reproducible from records) supported by a documented derivation for every metric, including success rate denominators and the treatment of open incidents? [Measurability, Spec §SC-010, Spec §FR-OBS-004]
+- [x] CHK027 - Can SC-002 (overlapping parallel intervals) be met without injected delays? If not, is reliance on an injected `DELAY` acknowledged in the acceptance criterion? [Measurability, Spec §SC-002, ADR-0003 §Decision 5]
+- [x] CHK028 - Is SC-003 ("100% of attempts, no stage beyond a gate starts before the decision") defined over an enumerable set of attempts, so that it can be objectively evaluated? [Measurability, Spec §SC-003]
+- [x] CHK029 - Does SC-007 ("plan version increases by exactly one per material clarification") account for clarification rounds and rework bumps within the same run? [Measurability, Spec §SC-007]
+- [x] CHK030 - Is SC-010 (metrics reproducible from records) supported by a documented derivation for every metric, including success rate denominators and the treatment of open incidents? [Measurability, Spec §SC-010, Spec §FR-OBS-004]
 
 ## Scenario Coverage
 
-- [ ] CHK031 - Are alternate flows (rejection → rework, rejection → terminate, requirement change after approval) specified with expected outcomes comparable in detail to SCN-A/B/C? [Coverage, Spec §FR-HUM-005, Spec §FR-ORC-013]
-- [ ] CHK032 - Are exception flows for policy (mandatory FAIL, exception requested → approved, exception rejected) specified with run outcomes? [Coverage, Spec §FR-POL-004, ADR-0004 §Decision 7]
-- [ ] CHK033 - Are recovery flows for restarts in each waiting state, during a parallel wave, and during compensation covered by requirements? [Coverage, Spec §FR-ORC-006, Spec §FR-REL-007, ADR-0005]
-- [ ] CHK034 - Is it specified how a clarification that conflicts with an approved repository requirement (e.g. a default expiry vs FR-URL-008 "never expires") is governed? [Conflict, Spec §FR-SCN-003, Spec §FR-URL-008, Constitution VII]
+- [x] CHK031 - Are alternate flows (rejection → rework, rejection → terminate, requirement change after approval) specified with expected outcomes comparable in detail to SCN-A/B/C? [Coverage, Spec §FR-HUM-005, Spec §FR-ORC-013]
+- [x] CHK032 - Are exception flows for policy (mandatory FAIL, exception requested → approved, exception rejected) specified with run outcomes? [Coverage, Spec §FR-POL-004, ADR-0004 §Decision 7]
+- [x] CHK033 - Are recovery flows for restarts in each waiting state, during a parallel wave, and during compensation covered by requirements? [Coverage, Spec §FR-ORC-006, Spec §FR-REL-007, ADR-0005]
+- [x] CHK034 - Is it specified how a clarification that conflicts with an approved repository requirement (e.g. a default expiry vs FR-URL-008 "never expires") is governed? [Conflict, Spec §FR-SCN-003, Spec §FR-URL-008, Constitution VII]
 
 ## Edge Case Coverage
 
-- [ ] CHK035 - Are duplicate and concurrent submissions of the same human decision or implementation evidence addressed (idempotency vs refusal)? [Edge Case, Spec §FR-HUM-007, ADR-0003 §Decision 7]
-- [ ] CHK036 - Are requirements defined for evidence that lists changed artifacts but whose `TEST`/`SECURITY` probes then fail, including whether the run returns to `AWAITING_IMPLEMENTATION` or ends `FAILED`? [Edge Case, Gap, ADR-0005 §Decision 8]
+- [x] CHK035 - Are duplicate and concurrent submissions of the same human decision or implementation evidence addressed (idempotency vs refusal)? [Edge Case, Spec §FR-HUM-007, ADR-0003 §Decision 7]
+- [x] CHK036 - Are requirements defined for evidence that lists changed artifacts but whose `TEST`/`SECURITY` probes then fail, including whether the run returns to `AWAITING_IMPLEMENTATION` or ends `FAILED`? [Edge Case, Gap, ADR-0005 §Decision 8]
 
 ## Non-Functional Requirements
 
-- [ ] CHK037 - Is the security limitation of self-declared `actorType` (no authentication) documented as an accepted risk with an owner, and is its acceptance recorded? [Assumption, Spec §EXC-003, ADR-0004 §Risks]
-- [ ] CHK038 - Are requirements defined for the fault-injection capability's exposure: enabled by default, its scope, and how injected effects are excluded from or labeled in metrics? [Gap, Spec §FR-REL-011, Spec §FR-OBS-005]
-- [ ] CHK039 - Is an acceptable upper bound for command latency stated, given that HTTP commands block during automated waves? [Gap, Spec §NFR-010, ADR-0003 §Consequences]
+- [x] CHK037 - Is the security limitation of self-declared `actorType` (no authentication) documented as an accepted risk with an owner, and is its acceptance recorded? [Assumption, Spec §EXC-003, ADR-0004 §Risks]
+- [x] CHK038 - Are requirements defined for the fault-injection capability's exposure: enabled by default, its scope, and how injected effects are excluded from or labeled in metrics? [Gap, Spec §FR-REL-011, Spec §FR-OBS-005]
+- [x] CHK039 - Is an acceptable upper bound for command latency stated, given that HTTP commands block during automated waves? [Gap, Spec §NFR-010, ADR-0003 §Consequences]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK040 - Are the assumptions behind the live SCN-A sequencing (graph frozen after slice 2, additive migrations, the run waiting across slices) recorded with a mitigation if they are violated? [Assumption, Plan §Delivery slices, ADR-0002 §Risks]
-- [ ] CHK041 - Is the assumption that the capability registry accurately reflects the codebase traceable to a requirement and a guarding test? [Assumption, Research R6, ADR-0003 §Risks]
-- [ ] CHK042 - Is ASM-001 (the official assignment text is not in the repository) still acceptable, or should the assignment text be added so that FR source tags can be validated? [Assumption, Spec §ASM-001]
+- [x] CHK040 - Are the assumptions behind the live SCN-A sequencing (graph frozen after slice 2, additive migrations, the run waiting across slices) recorded with a mitigation if they are violated? [Assumption, Plan §Delivery slices, ADR-0002 §Risks]
+- [x] CHK041 - Is the assumption that the capability registry accurately reflects the codebase traceable to a requirement and a guarding test? [Assumption, Research R6, ADR-0003 §Risks]
+- [x] CHK042 - Is ASM-001 (the official assignment text is not in the repository) still acceptable, or should the assignment text be added so that FR source tags can be validated? [Assumption, Spec §ASM-001]
 
 ## Resolution notes (2026-10-02, assistant — for reviewer evaluation; boxes intentionally left unchecked)
 
@@ -89,6 +89,50 @@ Amendments made at the candidate's request. See plan.md §Requirements-quality g
   CHK017, CHK026, CHK030, CHK035, CHK037.
 - **Not addressed in this round**: CHK001, CHK005, CHK008, CHK009, CHK011–015, CHK018–025,
   CHK027–029, CHK031–033, CHK039–042.
+
+## Reviewer assessment (2026-10-02, performed by the assistant at the candidate's explicit request)
+
+Assessed against: spec.md (approved), plan.md rev. 3 (incl. gate resolutions), ADR-0001..0005
+(accepted), research.md, data-model.md, contracts/openapi.yaml, tasks.md. An item is checked only
+if the approved artifacts already define the requirement or design. Planned code alone does not
+count.
+
+**Round 1 result**: 29 of 42 checked; 13 unchecked (resolved in round 2 below). Where the basis for a checked item is not obvious:
+- CHK005: plan §stage contracts (DECOMPOSE: unknown capability ⇒ PERMANENT ⇒ `FAILED`); traces to
+  the spec's no-guessing rule (FR-SCN-003) and FR-ORC-014.
+- CHK014: ADR-0004 §4 ("at or upstream of" = DAG ancestors of the rejected or failed node).
+- CHK019: the mapping is in ADR-0003 §9. The candidate decided on 2026-10-02 to keep it there
+  without amending the spec.
+- CHK021: FR-ORC-011 says "at least"; `AWAITING_IMPLEMENTATION` is an additional waiting state.
+- CHK022/023: ADR-0004 §1 (AGENT bounded; resume HUMAN-only, accepted).
+- CHK029: SC-007 counts clarifications only. Rework bumps are defined separately (CHK026).
+
+**Round 1 unchecked items** (13): CHK008, 009, 011, 012, 013, 015, 018, 024, 027, 028, 033, 039, 042.
+
+### Round 2 reassessment (2026-10-02, assistant at the candidate's explicit request)
+
+Basis: human decisions CHK009 (spec clarification approved) and CHK042 (ASM-001 accepted), plus
+the clarifications in plan §Checklist gate clarifications — round 2, research R5/R6/R11/R20,
+data-model (evidence timestamp), ADR-0001/0005 wording clarifications, and tasks T009, T034, T037,
+T041, T065, T074, T079, T087, T118, T119, T121.
+
+| Item | Now satisfied by |
+|---|---|
+| CHK008 | R20 + plan round-2 table: evidence invalidated; Git changes are external responsibility; new revision/evidence required before validation |
+| CHK009 | spec FR-REL-008 (approved): per-trigger recoverable mapping, copied from plan/ADR-0005 |
+| CHK011 | R5: exact normalization, term lists and regexes. A scratchpad simulation of the documented rules reproduced the expected results (SCN-A/B none; SCN-C R2+R4; clarified SCN-C none; conflict fixture R3) |
+| CHK012 | R6: recorded behavior statements per capability with FR IDs, the definition of "recorded behavior", and the exact `implementationRequired` rule |
+| CHK013 | R20: objective materiality criteria; HUMAN-initiated; no runtime inference |
+| CHK015 | R20: semantic definition of "same stage path" and the explicit exclusions |
+| CHK018 | R11: PRIV-01 term list; DEP-01 list with licenses verified from POM metadata (local cache; Maven Central for the uncached `spring-boot-starter-data-jpa` 3.5.16). Transitive Hibernate 6.6.53.Final LGPL-2.1+ noted |
+| CHK024 | R20 + data-model + T034/T118: evidence refused before approval; evidence timestamp later than approval; traceability shows the order; limitation stated |
+| CHK027 | R20 + T015/T074: overlap measured with controlled instrumentation on the real scheduler. **Note**: the acknowledgment is in plan/research by human direction; the spec's SC-002 text is unchanged |
+| CHK028 | R20 + T118: SC-003 population enumerated. **Note**: defined in plan/research; the spec's SC-003 text is unchanged |
+| CHK033 | R20 + plan + ADR-0005 §5 clarification + T079/T087: `RUNNING` runs with or without a running stage are covered |
+| CHK039 | R20: derived whole-command safety bound (≤ 5 waves, ~76.5 s, stated 90 s), distinct from PVT-004 |
+| CHK042 | spec ASM-001 (explicitly accepted): external brief ranks above repository artifacts and is not copied in |
+
+**Round 2 result: 42/42 checked.** No item remains unresolved.
 
 ## Notes
 

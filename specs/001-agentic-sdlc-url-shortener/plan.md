@@ -10,7 +10,8 @@ is not in the repository (ASM-001).
 
 **Status**: APPROVED (revision 3) — architecture approved by the human candidate on 2026-10-02.
 ADRs 0001–0005 accepted 2026-10-02; the ADR-0004/0005 amendments from the requirements-quality
-gate resolutions below were re-accepted by the human candidate on 2026-10-02.
+gate resolutions below were re-accepted by the human candidate on 2026-10-02. Checklist gate
+round-2 clarifications approved by the human candidate on 2026-10-02 (no architecture change).
 
 ## Summary
 
@@ -204,9 +205,13 @@ Seven tables ([data-model.md](./data-model.md)): `link` (link + analytics column
 - **Waiting runs**, in any `AWAITING_*` state, are fully described by their rows. After a restart,
   the next human command continues them normally. This is how an engineer restarts the app on new
   code while a run waits at `AWAITING_IMPLEMENTATION`.
-- **Interrupted runs**: at startup, a stage found `RUNNING` gets `ATTEMPT_ROLLED_BACK` (back to
-  `PENDING`), the compensation sweep runs if it was `TEST`, and the run becomes `SAFE_STOPPED`
-  (recoverable, `INTERRUPTED`).
+- **Interrupted runs** (CHK033): at startup every non-terminal run is inspected.
+  - `RUNNING` with a stage `RUNNING`: `ATTEMPT_ROLLED_BACK` (back to `PENDING`), then the
+    compensation sweep, then `SAFE_STOPPED` (recoverable, `INTERRUPTED`).
+  - `RUNNING` with no stage `RUNNING`: the idempotent compensation sweep, then `SAFE_STOPPED`
+    (recoverable, `INTERRUPTED`).
+  - `AWAITING_*` runs are untouched.
+  - Nothing is re-executed automatically; continuing needs HUMAN `resume`.
 - **Preservation**: the engine starts only `PENDING` eligible nodes, so `SUCCEEDED` nodes never
   re-run. A replan resets only descendants of the changed node.
 - **Duplicate execution protection**: a per-run lock, a `@Version` optimistic lock, and a
@@ -420,6 +425,28 @@ checklist item; none changes the DAG, the planes or the technology.
 | CHK035 | Duplicate or concurrent identical decisions and evidence are serialized by the per-run lock. The second one finds the run no longer waiting for it, so it gets `409` plus `DECISION_REFUSED` (refused, not replayed). Clients re-read the run. | ADR-0003 §7 |
 | CHK037 | Self-declared `actorType` (no authentication, EXC-003) is an **accepted risk**, owned by the human candidate and accepted with ADR-0004 on 2026-10-02. It is listed in the README limitations, and production would bind actor types to authenticated identities. | ADR-0004 Risks |
 
+## Checklist gate clarifications — round 2 (2026-10-02)
+
+Human decisions: CHK009 (approved spec clarification) and CHK042 (ASM-001 accepted). All other rows
+are clarifications with no architectural change. Full text is in research R5 (CHK011), R6 (CHK012),
+R11 (CHK018) and R20.
+
+| Item | Clarification |
+|---|---|
+| CHK008 | Replan/rework invalidates recorded evidence but cannot undo Git changes. Reverting or adjusting them is external engineering work. New evidence with a new revision is required before downstream validation. |
+| CHK009 | spec FR-REL-008 now states the approved recoverable mapping. Recoverable: retries exhausted without fallback; restart interruption. Not recoverable: policy FAIL; rejected exception; invalid state; compensation failure. |
+| CHK011 | AMB-R1..R4 are defined with exact bounded term lists and regexes (R5). No other interpretation is used. |
+| CHK012 | Recorded behavior statements B1..Bn per capability, with FR IDs. `implementationRequired = false` only if all capabilities are IMPLEMENTED, there is no behavior change verb and no out-of-record detail pattern (R6). |
+| CHK013 | Material = changes observable behavior, acceptance criteria, capability scope, API/data contract, security/privacy, policy outcome or approved semantics. HUMAN-initiated via `requirement-change`. The runtime never infers materiality (R20). |
+| CHK015 | "Same stage path" = same nodes executed/skipped, branches, gate locations, success/failure class and code, and requirement/capability decisions. Timestamps, IDs, thread names, codes, probe IDs and intra-wave event order may differ (R20). |
+| CHK018 | PRIV-01 term list and DEP-01 approved list with licenses verified from POM metadata. Transitive Hibernate LGPL-2.1+ noted for awareness (R11). |
+| CHK024 | Evidence is refused before a valid design approval, and its timestamp must be later than that approval. Traceability shows approval before evidence. The runtime cannot observe external editing start (limitation) (R20). |
+| CHK027 | Overlap is proven via controlled instrumentation (stub delay, injected `DELAY`) on the real scheduler. The delay makes concurrency measurable and does not simulate it (R20). |
+| CHK028 | SC-003 denominator = every observed HUMAN_GATE crossing attempt in the gate/scenario tests plus the three live runs. Each needs a preceding valid HUMAN decision at the current plan version. Expected 100% (R20). |
+| CHK033 | Startup recovery covers `RUNNING` runs with **or without** a `RUNNING` stage: sweep, then recoverable `SAFE_STOPPED INTERRUPTED`. No automatic re-execution (R20). |
+| CHK039 | Whole-command safety bound: ≤ 5 waves × 15.3 s ≈ 76.5 s, stated bound **90 s**. This is a safety bound, not a target. PVT-004 unchanged (R20). |
+| CHK042 | ASM-001 kept and explicitly accepted. The official brief remains the external authoritative source above repository artifacts; it is not copied in. |
+
 ## ADR candidates (to be written after approval; status Proposed until human acceptance)
 
 1. **ADR-001** Single-process modular monolith (Java 21 / Spring Boot 3.5 / Maven), plane boundary.
@@ -435,7 +462,7 @@ checklist item; none changes the DAG, the planes or the technology.
 
 | Decision | Alternatives | Consequences | Risks | Reversibility | Validation |
 |---|---|---|---|---|---|
-| Spring Boot 3.5 monolith | Boot 4.0, plain Java, services | familiar, fast | 3.5 support horizon | high | offline build; `mvnw verify` |
+| Spring Boot 3.5 monolith | Boot 4.0, plain Java, services | familiar, fast | 3.5 support horizon | high | `mvnw verify` (first build downloads uncached artifacts, then offline) |
 | H2 file + Flyway + JPA | in-memory H2, Postgres, JdbcClient | durable, zero-install, versioned schema | H2 dialect quirks | high | restart test |
 | Wave-scheduled in-process DAG | async runner, workflow engines | deterministic, real parallelism | HTTP blocks during automated work | medium | engine + overlap tests |
 | `IMPLEMENT` as `EXTERNAL_ACTION` | simulated change plan | real governance of real changes; long-lived waiting runs | evidence and actor type are self-declared | high | gate/evidence tests; TEST probes |

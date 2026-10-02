@@ -115,7 +115,8 @@ written into a `STAGE_INVALIDATED` audit event.
   **required** and accepted only when the current `DESIGN` output says
   `implementationRequired = false`.
 
-The application checks structure only and never queries Git.
+The application checks structure only and never queries Git. The evidence record's `created_at` must be
+later than the valid `DESIGN_APPROVAL` decision it follows (CHK024).
 
 An approval or implementation record is **valid** only if it has not been superseded by
 `DECISION_INVALIDATED` and its `plan_version` equals the run's.

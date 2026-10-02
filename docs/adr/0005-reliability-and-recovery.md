@@ -3,7 +3,7 @@
 - **Status**: Accepted (2026-10-02, approved by the human candidate); amended 2026-10-02 by the
   requirements-quality gate resolutions (plan §Requirements-quality gate resolutions) — amendment
   re-accepted by the human candidate 2026-10-02
-- **Date**: 2026-10-02
+- **Date**: 2026-10-02 · *Clarified 2026-10-02: startup-recovery scope (CHK033); no decision change*
 - **Deciders**: human candidate (approval authority); drafted by Claude Code
 - **Plan**: rev. 3 §Reliability model, §Recovery incidents and MTTR · **Research**: R9, R16
 
@@ -51,7 +51,10 @@ can reproduce.
    - Output and `SUCCEEDED` status commit together.
    - A failed, timed-out or interrupted attempt commits nothing, and the stage returns to
      `PENDING` with no output (`ATTEMPT_ROLLED_BACK`).
-   - The same rollback is applied at startup to stages left `RUNNING`.
+   - At startup, a run left `RUNNING` is treated as interrupted. If a stage was `RUNNING`, it is
+     rolled back the same way. With or without a running stage, the idempotent compensation
+     sweep runs, and the run becomes recoverable `SAFE_STOPPED` (`INTERRUPTED`). Nothing is
+     re-executed automatically (CHK033).
 6. **Compensation = corrective action for side effects already committed elsewhere.**
    - `TEST` creates real probe links through `LinkService`. These commit in their own
      transactions, so attempt rollback cannot undo them.
