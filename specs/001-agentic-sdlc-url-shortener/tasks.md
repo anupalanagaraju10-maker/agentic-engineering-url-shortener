@@ -331,7 +331,7 @@ approval is refused.
 
 ### Tests first
 
-- [ ] T031 [P] [US1] Write `test/workflow/rules/AmbiguityRulesTest.java`:
+- [X] T031 [P] [US1] Write `test/workflow/rules/AmbiguityRulesTest.java`:
   - SCN-A text ⇒ no findings;
   - SCN-B text ⇒ no findings;
   - "Make links expire." ⇒ AMB-R2 and AMB-R4;
@@ -340,7 +340,7 @@ approval is refused.
   - each finding records rule id, matched text and explanation.
 
   (FR-ORC-016)
-- [ ] T032 [P] [US1] Write `test/workflow/stages/UnderstandAndDecomposeTest.java`:
+- [X] T032 [P] [US1] Write `test/workflow/stages/UnderstandAndDecomposeTest.java`:
   - normalization;
   - capability mapping;
   - change type exactly per research R6:
@@ -352,12 +352,12 @@ approval is refused.
       clarified SCN-C ⇒ `BROWNFIELD`;
   - DECOMPOSE produces ≥ 1 task per capability, each with an acceptance check and requirement IDs;
   - an unknown capability ⇒ `PERMANENT` failure (`INVALID_INPUT`).
-- [ ] T033 [P] [US1] Write `test/workflow/stages/ImpactAnalysisAndDesignTest.java`:
+- [X] T033 [P] [US1] Write `test/workflow/stages/ImpactAnalysisAndDesignTest.java`:
   - the impact report populates all 10 FR-SCN-002 areas;
   - DESIGN lists components, interface/data changes, the test plan, dependencies, a
     security-sensitivity flag, the run's `requirementIds`, `implementationRequired` and
     `changesApprovedRequirements`.
-- [ ] T034 [P] [US1] Write `test/workflow/policy/PolicyV1Test.java`:
+- [X] T034 [P] [US1] Write `test/workflow/policy/PolicyV1Test.java`:
   - PRIV-01 `PASS` / `EXCEPTION_REQUESTED` (visitor IP, email, location);
   - SEC-01 `FAIL` for "allow javascript: URLs" ⇒ run `SAFE_STOPPED`, non-recoverable;
   - CHG-01 `NOT_APPLICABLE` (greenfield) / `PASS` / `FAIL` (brownfield);
@@ -365,7 +365,7 @@ approval is refused.
   - every evaluation records policy version `v1`, check id, node, mandatory, result and reason.
 
   (FR-POL-001..004)
-- [ ] T035 [P] [US1] Write `test/workflow/api/HumanGateTest.java`:
+- [X] T035 [P] [US1] Write `test/workflow/api/HumanGateTest.java`:
   - no progress past a gate without a decision;
   - approval at `DESIGN_APPROVAL` by `HUMAN` succeeds;
   - `AGENT`, `SYSTEM`, blank and reserved actors get `400`/`409` plus `DECISION_REFUSED`;
@@ -377,7 +377,7 @@ approval is refused.
     blocked request (H4).
 
   (FR-HUM-001..007, SC-003, CHK002, NFR-009)
-- [ ] T036 [P] [US1] Write `test/workflow/api/ImplementationEvidenceTest.java`:
+- [X] T036 [P] [US1] Write `test/workflow/api/ImplementationEvidenceTest.java`:
   - accepted from `HUMAN` or `AGENT` only while `AWAITING_IMPLEMENTATION` at the current plan
     version;
   - non-empty `changedArtifacts` without `revision` ⇒ `400`;
@@ -390,32 +390,32 @@ approval is refused.
   - the stored evidence `created_at` is later than the valid approval decision's `created_at`.
 
   (ADR-0004 §3, CHK004, CHK024)
-- [ ] T037 [P] [US1] Write `test/workflow/api/WorkflowApiTest.java` (MockMvc against
+- [X] T037 [P] [US1] Write `test/workflow/api/WorkflowApiTest.java` (MockMvc against
   contracts/openapi.yaml):
   - `POST /api/workflows` ⇒ 201 `Run`, with `X-Correlation-Id` honored;
   - `GET /api/workflows/{id}` returns status, `pendingAction`, plan/policy version and every node
     with kind, `dependsOn`, conditional and status;
   - `GET …/events` and `GET …/decisions` are ordered;
   - unknown id ⇒ 404 problem. (NFR-005)
-- [ ] T038 [US1] Run `./mvnw test` for T031–T037 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 3 checkpoint.
+- [X] T038 [US1] Run `./mvnw test` for T031–T037 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 3 checkpoint.
 
 ### Implementation
 
-- [ ] T039 [P] [US1] Implement `main/workflow/rules/AmbiguityRules.java` using **exactly** the
+- [X] T039 [P] [US1] Implement `main/workflow/rules/AmbiguityRules.java` using **exactly** the
   normalization, capability terms, outcome verbs, R2 parameter patterns, R3 conflict pairs and R4
   change verbs/qualifiers listed in research R5. Nothing beyond those lists (CHK011).
-- [ ] T040 [P] [US1] Implement `main/workflow/stages/IntakeExecutor.java` (non-blank, ≤ 4000 chars)
+- [X] T040 [P] [US1] Implement `main/workflow/stages/IntakeExecutor.java` (non-blank, ≤ 4000 chars)
   and `UnderstandExecutor.java` (normalize, capabilities, findings, change type (exact research R6 rule), `REQUIREMENT_NORMALIZED`,
   `AMBIGUITY_DETECTED`, branch decision for `CLARIFICATION`).
-- [ ] T041 [P] [US1] Implement `main/workflow/stages/DecomposeExecutor.java` (tasks with acceptance
+- [X] T041 [P] [US1] Implement `main/workflow/stages/DecomposeExecutor.java` (tasks with acceptance
   checks and requirement IDs; fixes the run's requirement-ID set) and `ImpactAnalysisExecutor.java`
   (10-area report from the registry; branch decision).
   Traceability: per T032/T033; FR-ORC-002, FR-SCN-002.
-- [ ] T042 [US1] Implement `main/workflow/stages/DesignExecutor.java` per T033. Set
+- [X] T042 [US1] Implement `main/workflow/stages/DesignExecutor.java` per T033. Set
   `implementationRequired` exactly per research R6: `false` only if all matched capabilities are
   `IMPLEMENTED`, there is no R6 behavior change verb, and none of the R6 out-of-record detail
   patterns is present; otherwise `true`.
-- [ ] T043 [US1] Implement `main/workflow/policy/PolicyCatalog.java` (version `v1`: PRIV-01, SEC-01,
+- [X] T043 [US1] Implement `main/workflow/policy/PolicyCatalog.java` (version `v1`: PRIV-01, SEC-01,
   CHG-01, DEP-01, AUD-01, each with domain and mandatory flag; the PRIV-01 term list and the DEP-01
   approved dependency list with licenses **exactly** as in research R11 (CHK018)) and
   `PolicyEvaluator.java`:
@@ -423,20 +423,20 @@ approval is refused.
   - mandatory `FAIL` ⇒ safe-stop;
   - `EXCEPTION_REQUESTED` ⇒ node `BLOCKED`, run `AWAITING_APPROVAL`,
     `pendingAction = EXCEPTION:<checkId>`.
-- [ ] T044 [US1] Implement `main/workflow/engine/DecisionService.java`:
+- [X] T044 [US1] Implement `main/workflow/engine/DecisionService.java`:
   - approve, reject and terminate with actor validation, gate/plan-version checks,
     `DECISION_REFUSED` recording and decision lineage;
   - terminate from any `AWAITING_*` (compensation hook is a no-op until Phase 6).
 
   (FR-ORC-010)
-- [ ] T045 [US1] Implement `main/workflow/engine/ImplementationEvidenceService.java` per T036.
-- [ ] T046 [US1] Implement `main/workflow/api/WorkflowController.java` and request/response records for
+- [X] T045 [US1] Implement `main/workflow/engine/ImplementationEvidenceService.java` per T036.
+- [X] T046 [US1] Implement `main/workflow/api/WorkflowController.java` and request/response records for
   `POST /api/workflows`, `GET /api/workflows/{id}`, `GET …/events`, `GET …/decisions`,
   `POST …/approve`, `POST …/reject`, `POST …/terminate` and `POST …/implementation`, exactly as in
   contracts/openapi.yaml (FR-ORC-015).
-- [ ] T047 [US1] Run `./mvnw verify`. All tests green (record red → green).
-- [ ] T048 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 3 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
-- [ ] T049 [US1] **HUMAN** (records in `docs/scenarios/README.md`): start the app with the default profile on the local demonstration data directory `./data` (not the `demo` profile), and submit the SCN-A requirement
+- [X] T047 [US1] Run `./mvnw verify`. All tests green (record red → green).
+- [X] T048 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 3 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
+- [X] T049 [US1] **HUMAN** (records in `docs/scenarios/README.md`): start the app with the default profile on the local demonstration data directory `./data` (not the `demo` profile), and submit the SCN-A requirement
   ("Create a short link for a valid HTTP/HTTPS address, redirect to the original address, and record
   redirect count and last redirect time.") as `HUMAN`/`candidate`. Review the design, then
   **approve `DESIGN_APPROVAL`** (plan version 1). The run now waits in `AWAITING_IMPLEMENTATION`.

@@ -319,8 +319,9 @@ chosen node). Nothing is deleted.
 - **Removed (YAGNI)**:
   - `SEC-02`: the validator probes are `SECURITY`'s exit criteria.
   - `CHG-02`: approval presence is structurally required before `IMPLEMENT`.
-- All checks are mandatory. A `FAIL` leads to safe-stop. `EXCEPTION_REQUESTED` blocks the node
-  until a human approves the exception (policy id, reason, scope, actor, compensating control,
+- All checks are mandatory. A `FAIL` leads to safe-stop. `EXCEPTION_REQUESTED` makes the run wait
+  (`AWAITING_APPROVAL`, `pendingAction = EXCEPTION:<checkId>`; the evaluated node has already
+  succeeded, so nothing downstream starts; clarified in Phase 3) until a human approves the exception (policy id, reason, scope, actor, compensating control,
   timestamp, expiry/review) or rejects it.
 - Readiness fails on any unresolved issue.
 

@@ -304,8 +304,9 @@ local Maven cache already holds Spring Boot 3.5.16, H2 2.3.232, Flyway 11.7.2.
   | DEP-01 | dependencies & licensing | DESIGN | dependencies the design adds are on the approved list (with license) ⇒ `PASS`, otherwise `FAIL`; none added ⇒ `NOT_APPLICABLE` | licensing gate |
   | AUD-01 | audit evidence | RELEASE_READINESS | every executed node, gate decision and implementation record has audit events; retention assumption ASM-009 stated | auditability |
 
-  All mandatory. Mandatory `FAIL` ⇒ safe-stop. `EXCEPTION_REQUESTED` ⇒ node `BLOCKED`, run
-  `AWAITING_APPROVAL` until a human approves (with all FR-POL-005 fields) or rejects the
+  All mandatory. Mandatory `FAIL` ⇒ safe-stop. `EXCEPTION_REQUESTED` ⇒ the run waits in
+  `AWAITING_APPROVAL` with `pendingAction = EXCEPTION:<checkId>` (the evaluated node has already
+  succeeded, so the run, not the node, waits and no downstream node starts; clarified in Phase 3) until a human approves (with all FR-POL-005 fields) or rejects the
   exception (⇒ safe-stop). Readiness fails on any unresolved mandatory failure or unapproved
   exception.
 - **Removed at architecture review (YAGNI)**: `SEC-02` — the real validator probes remain, as
@@ -340,6 +341,18 @@ local Maven cache already holds Spring Boot 3.5.16, H2 2.3.232, Flyway 11.7.2.
   the human candidate 2026-10-02)**:
   `org.hibernate.orm:hibernate-core` 6.6.53.Final, which is pulled in by `spring-boot-starter-data-jpa`
   and Boot-managed, is **GNU LGPL v2.1 or later** (Maven Central POM, verified 2026-10-02).
+- **SEC-01 exact patterns (added in Phase 3; R11 previously gave only the intent)**: `FAIL` when the
+  normalized requirement matches any of `allow (javascript|file|data)`, `allow localhost`,
+  `allow private (ip|address)` (the R6 CREATE_LINK B2/B3 contradiction patterns), or
+  `(disable|skip) validation`. Otherwise `PASS`.
+- **How a design "adds" dependencies for DEP-01 (added in Phase 3)**: the dependencies a design adds
+  are the technology mentions found in the normalized requirement.
+  - Approved mentions: `h2`, `flyway`, `jpa`, `spring web`, `bean validation`, `actuator`, mapping to
+    the approved artifacts above.
+  - Unapproved mentions: `redis`, `kafka`, `rabbitmq`, `mongodb`, `postgresql`, `postgres`, `mysql`,
+    `elasticsearch`, `temporal`, `camunda` (each FAILs).
+  - No mention means `NOT_APPLICABLE`, which keeps the plan's "SCN-A: DEP-01 N/A": capability
+    templates add no dependencies because the codebase already has every approved one.
 - **Limitation**: DEP-01 checks the design's declared direct dependencies against the approved
   list. It is not a license scanner of the full transitive build.
 

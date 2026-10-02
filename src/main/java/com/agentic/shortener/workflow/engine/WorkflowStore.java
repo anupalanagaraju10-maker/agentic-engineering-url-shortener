@@ -247,22 +247,164 @@ public class WorkflowStore {
     /** BLOCKED -> SUCCEEDED once the human decision / external evidence has been validated by the caller. */
     public void resolveBlocked(UUID runId, Node node, Map<String, Object> output, Provenance provenance) {
         locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> resolveBlockedInTransaction(runId, node, output, provenance));
+    }
+
+    public List<Decision> decisions(UUID runId) {
+        return decisions.findByRunIdOrderByIdAsc(runId);
+    }
+
+    // ---------------------------------------------------------------- derived state, policy, safe-stop
+
+    /** After UNDERSTAND: normalized requirement + change type on the run, with their audit events. */
+    public void recordUnderstanding(UUID runId, Map<String, Object> understand) {
+        locks.assertHeld(runId);
         tx.executeWithoutResult(status -> {
-            int rows = jdbc.update("""
-                    update workflow_stage set status = 'SUCCEEDED', output_json = ?, provenance = ?, ended_at = ?
-                    where run_id = ? and node = ? and status = 'BLOCKED'""",
-                    toJson(output), provenance.name(), now(), runId, node.name());
-            if (rows != 1) {
-                throw new ApiException(ErrorCategory.INVALID_STATE, HttpStatus.CONFLICT,
-                        "run " + runId + " is not waiting at " + node);
+            jdbc.update("update workflow_run set normalized_json = ?, change_type = ?, updated_at = ?, version = version + 1 where id = ?",
+                    toJson(understand), String.valueOf(understand.get("changeType")), now(), runId);
+            audit.append(runId, AuditEventType.REQUIREMENT_NORMALIZED, Node.UNDERSTAND, Actor.ENGINE,
+                    Map.of("normalized", understand.get("normalized"), "capabilities", understand.get("capabilities"),
+                            "changeType", understand.get("changeType")), false);
+            Object findings = understand.get("findings");
+            if (findings instanceof List<?> list && !list.isEmpty()) {
+                audit.append(runId, AuditEventType.AMBIGUITY_DETECTED, Node.UNDERSTAND, Actor.ENGINE,
+                        Map.of("findings", findings), false);
             }
-            updateRun(runId, RunStatus.RUNNING, null, null, false);
-            audit.append(runId, AuditEventType.STAGE_SUCCEEDED, node, Actor.ENGINE,
-                    Map.of("provenance", provenance.name()), false);
+        });
+    }
+
+    public void recordPolicyEvaluation(UUID runId, String policyVersion, String checkId, String domain, Node node,
+            boolean mandatory, String result, String reason, int planVersion) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            jdbc.update("""
+                    insert into policy_evaluation (run_id, policy_version, check_id, domain, node, mandatory, result,
+                        reason, plan_version, created_at)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    runId, policyVersion, checkId, domain, node.name(), mandatory, result, reason, planVersion, now());
+            audit.append(runId, AuditEventType.POLICY_EVALUATED, node, Actor.ENGINE,
+                    Map.of("checkId", checkId, "result", result, "reason", reason, "mandatory", mandatory), false);
+        });
+    }
+
+    /** SAFE_STOPPED with the recoverable flag (FR-REL-007/008). Non-recoverable stops are final. */
+    public void safeStop(UUID runId, String reason, boolean recoverable) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            updateRun(runId, RunStatus.SAFE_STOPPED, recoverable ? "RESUME" : null, reason, !recoverable);
+            jdbc.update("update workflow_run set recoverable = ? where id = ?", recoverable, runId);
+            audit.append(runId, AuditEventType.SAFE_STOPPED, null, Actor.ENGINE,
+                    Map.of("reason", reason, "recoverable", recoverable), false);
+        });
+    }
+
+    /** The run waits for a HUMAN policy-exception decision (research R11; the evaluated node already succeeded). */
+    public void waitForExceptionDecision(UUID runId, String pendingAction, Map<String, Object> payload) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            updateRun(runId, RunStatus.AWAITING_APPROVAL, pendingAction, null, false);
+            audit.append(runId, AuditEventType.EXCEPTION_REQUESTED, null, Actor.ENGINE, payload, false);
+        });
+    }
+
+    // ---------------------------------------------------------------- human decisions (FR-HUM, ADR-0004)
+
+    /** A refused command is itself recorded, by the engine, with what was attempted (FR-HUM-007). */
+    public void refuseDecision(UUID runId, String action, Actor attempted, String reason, int planVersion) {
+        locks.assertHeld(runId);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("action", action);
+        payload.put("attemptedActorType", attempted == null || attempted.actorType() == null ? null
+                : attempted.actorType().name());
+        payload.put("attemptedActorIdentity", attempted == null ? null : attempted.actorIdentity());
+        tx.executeWithoutResult(status -> {
+            decisions.save(new Decision(runId, DecisionType.DECISION_REFUSED, null, ActorType.SYSTEM,
+                    Actor.ENGINE.actorIdentity(), truncate(reason), planVersion, null, toJson(payload), Instant.now()));
+            Map<String, Object> event = new LinkedHashMap<>(payload);
+            event.put("reason", reason);
+            audit.append(runId, AuditEventType.DECISION_REFUSED, null, Actor.ENGINE, event, false);
+        });
+    }
+
+    /** Records the APPROVAL decision and completes the BLOCKED gate in one transaction. */
+    public Decision approveGate(UUID runId, Node gate, Actor actor, String reason, int planVersion,
+            List<String> acceptedRisks) {
+        locks.assertHeld(runId);
+        return tx.execute(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.APPROVAL, gate.name(), actor.actorType(),
+                    actor.actorIdentity(), reason, planVersion, null,
+                    toJson(Map.of("acceptedRisks", acceptedRisks == null ? List.of() : acceptedRisks)), Instant.now()));
+            audit.append(runId, AuditEventType.APPROVAL_GRANTED, gate, actor,
+                    Map.of("decisionId", decision.getId(), "reason", reason), false);
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("decisionId", decision.getId());
+            output.put("approvedBy", actor.actorIdentity());
+            output.put("acceptedRisks", acceptedRisks == null ? List.of() : acceptedRisks);
+            resolveBlockedInTransaction(runId, gate, output, Provenance.EXTERNAL);
+            return decision;
+        });
+    }
+
+    /** REJECTION: the gate stage FAILED (code REJECTED) and the run waits for rework or termination. */
+    public void rejectGate(UUID runId, Node gate, Actor actor, String reason, int planVersion) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.REJECTION, gate.name(), actor.actorType(),
+                    actor.actorIdentity(), reason, planVersion, null, toJson(Map.of()), Instant.now()));
+            jdbc.update("""
+                    update workflow_stage set status = 'FAILED', failure_class = 'PERMANENT', failure_code = 'REJECTED',
+                        failure_reason = ?, ended_at = ?
+                    where run_id = ? and node = ? and status = 'BLOCKED'""", truncate(reason), now(), runId, gate.name());
+            updateRun(runId, RunStatus.AWAITING_REWORK, "REWORK_OR_TERMINATE", null, false);
+            audit.append(runId, AuditEventType.APPROVAL_REJECTED, gate, actor,
+                    Map.of("decisionId", decision.getId(), "reason", reason), false);
+        });
+    }
+
+    /** TERMINATION by a HUMAN: the run ends FAILED (compensation is added in Phase 6). */
+    public void terminateRun(UUID runId, Actor actor, String reason, int planVersion) {
+        locks.assertHeld(runId);
+        tx.executeWithoutResult(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.TERMINATION, null, actor.actorType(),
+                    actor.actorIdentity(), reason, planVersion, null, toJson(Map.of()), Instant.now()));
+            updateRun(runId, RunStatus.FAILED, null, "terminated by " + actor.actorIdentity() + ": " + reason, true);
+            audit.append(runId, AuditEventType.RUN_FAILED, null, actor,
+                    Map.of("decisionId", decision.getId(), "reason", "terminated: " + reason), false);
+        });
+    }
+
+    /** IMPLEMENTATION_EVIDENCE decision + IMPLEMENT completed with provenance EXTERNAL (ADR-0003 §8). */
+    public Decision recordImplementation(UUID runId, Actor actor, String summary, int planVersion,
+            Map<String, Object> evidence) {
+        locks.assertHeld(runId);
+        return tx.execute(status -> {
+            Decision decision = decisions.save(new Decision(runId, DecisionType.IMPLEMENTATION_EVIDENCE,
+                    Node.IMPLEMENT.name(), actor.actorType(), actor.actorIdentity(), truncate(summary), planVersion, null,
+                    toJson(evidence), Instant.now()));
+            audit.append(runId, AuditEventType.IMPLEMENTATION_RECORDED, Node.IMPLEMENT, actor,
+                    Map.of("decisionId", decision.getId(), "revision", String.valueOf(evidence.get("revision"))), false);
+            Map<String, Object> output = new LinkedHashMap<>(evidence);
+            output.put("decisionId", decision.getId());
+            resolveBlockedInTransaction(runId, Node.IMPLEMENT, output, Provenance.EXTERNAL);
+            return decision;
         });
     }
 
     // ---------------------------------------------------------------- helpers
+
+    private void resolveBlockedInTransaction(UUID runId, Node node, Map<String, Object> output, Provenance provenance) {
+        int rows = jdbc.update("""
+                update workflow_stage set status = 'SUCCEEDED', output_json = ?, provenance = ?, ended_at = ?
+                where run_id = ? and node = ? and status = 'BLOCKED'""",
+                toJson(output), provenance.name(), now(), runId, node.name());
+        if (rows != 1) {
+            throw new ApiException(ErrorCategory.INVALID_STATE, HttpStatus.CONFLICT,
+                    "run " + runId + " is not waiting at " + node);
+        }
+        updateRun(runId, RunStatus.RUNNING, null, null, false);
+        audit.append(runId, AuditEventType.STAGE_SUCCEEDED, node, Actor.ENGINE, Map.of("provenance", provenance.name()),
+                false);
+    }
 
     private void updateRun(UUID runId, RunStatus status, String pendingAction, String stopReason, boolean ended) {
         OffsetDateTime now = now();

@@ -39,19 +39,28 @@ public class WorkflowEngine {
     private final WorkflowGraph graph;
     private final Map<Node, StageExecutor> executors = new EnumMap<>(Node.class);
     private final RunLocks locks;
+    private final List<PostStageHook> hooks;
     private final ExecutorService pool;
 
     @Autowired
     public WorkflowEngine(WorkflowStore store, AuditService audit, ObjectProvider<StageExecutor> executors,
-            RunLocks locks) {
-        this(store, audit, WorkflowGraph.standard(), executors.orderedStream().toList(), locks);
+            RunLocks locks, ObjectProvider<PostStageHook> hooks) {
+        this(store, audit, WorkflowGraph.standard(), executors.orderedStream().toList(), locks,
+                hooks.orderedStream().toList());
+    }
+
+    /** Engine without post-stage hooks (used by engine tests with stub executors). */
+    public WorkflowEngine(WorkflowStore store, AuditService audit, WorkflowGraph graph,
+            List<StageExecutor> executors, RunLocks locks) {
+        this(store, audit, graph, executors, locks, List.of());
     }
 
     public WorkflowEngine(WorkflowStore store, AuditService audit, WorkflowGraph graph,
-            List<StageExecutor> executors, RunLocks locks) {
+            List<StageExecutor> executors, RunLocks locks, List<PostStageHook> hooks) {
         this.store = store;
         this.graph = graph;
         this.locks = locks;
+        this.hooks = List.copyOf(hooks);
         for (StageExecutor executor : executors) {
             if (this.executors.put(executor.node(), executor) != null) {
                 throw new IllegalStateException("more than one executor registered for " + executor.node());
@@ -131,6 +140,7 @@ public class WorkflowEngine {
     private boolean runWave(WorkflowRun run, List<NodeDefinition> wave, Map<Node, Map<String, Object>> outputs) {
         UUID runId = run.getId();
         boolean failed = false;
+        HookOutcome stop = null;
         List<Submitted> submitted = new ArrayList<>();
         for (NodeDefinition definition : wave) {
             Node node = definition.node();
@@ -164,6 +174,10 @@ public class WorkflowEngine {
                 } else {
                     store.completeStage(runId, s.node(), result.output(), result.provenance(), a.startedAt(),
                             a.endedAt(), a.threadName());
+                    HookOutcome outcome = runHooks(runId, s.node());
+                    if (stop == null && outcome.kind() != HookOutcome.Kind.CONTINUE) {
+                        stop = outcome;
+                    }
                 }
             } else {
                 store.failStage(runId, s.node(), result.failureClass(), result.failureCode(), result.failureReason(),
@@ -175,7 +189,27 @@ public class WorkflowEngine {
             store.failRun(runId, "a stage failed; see STAGE_FAILED events");
             return false;
         }
+        if (stop != null) {
+            if (stop.kind() == HookOutcome.Kind.SAFE_STOP) {
+                store.safeStop(runId, stop.reason(), stop.recoverable());
+            } else {
+                store.waitForExceptionDecision(runId, stop.pendingAction(), stop.payload());
+            }
+            return false;
+        }
         return true;
+    }
+
+    /** Post-stage hooks run here, on the coordinating thread (H1); the first non-CONTINUE outcome wins. */
+    private HookOutcome runHooks(UUID runId, Node node) {
+        HookOutcome first = HookOutcome.proceed();
+        for (PostStageHook hook : hooks) {
+            HookOutcome outcome = hook.afterStage(store.loadRun(runId), node, store.outputs(runId));
+            if (first.kind() == HookOutcome.Kind.CONTINUE && outcome.kind() != HookOutcome.Kind.CONTINUE) {
+                first = outcome;
+            }
+        }
+        return first;
     }
 
     /** Runs on a pool thread: executes stage logic only, never persistence (H1). */

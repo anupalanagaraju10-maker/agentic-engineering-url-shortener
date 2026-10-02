@@ -1,64 +1,52 @@
 package com.agentic.shortener.workflow.rules;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
  * Static registry of the URL-shortener capabilities, exactly as research R5 (vocabulary) and R6
- * (requirement IDs and recorded behavior statements). An entry moves from PLANNED to IMPLEMENTED in the
- * same change that implements it.
+ * (requirement IDs and recorded behavior statements), plus the design data used by DESIGN and
+ * IMPACT_ANALYSIS. An entry moves from PLANNED to IMPLEMENTED in the same change that implements it.
  */
 @Component
 public class CapabilityRegistry {
 
-    private final List<CapabilityEntry> entries = List.of(
-            planned(Capability.CREATE_LINK,
-                    List.of("short link", "short links", "short url", "shorten", "create a link", "create link"),
-                    List.of("FR-URL-001", "FR-URL-002", "FR-URL-003", "FR-URL-004", "FR-URL-005", "FR-URL-013",
-                            "FR-URL-016"),
-                    List.of(
-                            s("B1", "a client can create a short link for an absolute http/https address with a non-empty host"),
-                            s("B2", "other schemes (incl. javascript, file, data) are refused"),
-                            s("B3", "localhost and literal loopback/private hosts are refused without name resolution"),
-                            s("B4", "each code is unique, URL-safe, 7 characters, regenerated at most 5 times on collision"),
-                            s("B5", "addresses up to 2,048 characters"),
-                            s("B6", "storage unavailable means creation fails with service-unavailable and no code")),
-                    List.of("probe.create-link", "probe.reject-unsafe-url")),
-            planned(Capability.REDIRECT,
-                    List.of("redirect", "redirects", "redirected"),
-                    List.of("FR-URL-006", "FR-URL-007", "FR-URL-013", "FR-URL-017"),
-                    List.of(
-                            s("B1", "an active link redirects to its original address"),
-                            s("B2", "an unknown code returns not-found"),
-                            s("B3", "storage unavailable means a redirect returns service-unavailable"),
-                            s("B4", "an analytics-recording failure does not prevent the redirect")),
-                    List.of("probe.redirect", "probe.unknown-code")),
-            planned(Capability.ANALYTICS,
-                    List.of("redirect count", "last redirect", "analytics", "click count"),
-                    List.of("FR-URL-010", "FR-URL-012"),
-                    List.of(
-                            s("B1", "each successful redirect increments the link's count and sets its last-redirect time, readable by clients"),
-                            s("B2", "not-found and expired attempts are not counted"),
-                            s("B3", "no count is lost under concurrent redirects")),
-                    List.of("probe.redirect-count")),
-            planned(Capability.IDEMPOTENCY,
-                    List.of("idempotency", "idempotent", "duplicate request", "duplicate requests"),
-                    List.of("FR-URL-011"),
-                    List.of(
-                            s("B1", "a create request may carry an idempotency key"),
-                            s("B2", "same key and same content returns the first result"),
-                            s("B3", "same key and different content is a conflict"),
-                            s("B4", "no key means a new link")),
-                    List.of("probe.idempotent-replay", "probe.idempotent-conflict")),
-            planned(Capability.EXPIRATION,
-                    List.of("expire", "expires", "expired", "expiration", "expiry"),
-                    List.of("FR-URL-008", "FR-URL-009"),
-                    List.of(
-                            s("B1", "a client may optionally supply an absolute expiration time per link"),
-                            s("B2", "it must be in the future"),
-                            s("B3", "after it, the link returns an expired result distinct from not-found, with no redirect and no count"),
-                            s("B4", "a link without an expiration never expires (existing links are unaffected)")),
-                    List.of("probe.expired-link")));
+    private static final Map<Capability, List<String>> VOCABULARY = new EnumMap<>(Map.of(
+            Capability.CREATE_LINK, List.of("short link", "short links", "short url", "shorten", "create a link",
+                    "create link"),
+            Capability.REDIRECT, List.of("redirect", "redirects", "redirected"),
+            Capability.ANALYTICS, List.of("redirect count", "last redirect", "analytics", "click count"),
+            Capability.IDEMPOTENCY, List.of("idempotency", "idempotent", "duplicate request", "duplicate requests"),
+            Capability.EXPIRATION, List.of("expire", "expires", "expired", "expiration", "expiry")));
+
+    private final List<CapabilityEntry> entries;
+
+    public CapabilityRegistry() {
+        this(EnumSet.noneOf(Capability.class));
+    }
+
+    private CapabilityRegistry(Set<Capability> implemented) {
+        this.entries = defaults().stream()
+                .map(e -> implemented.contains(e.capability()) ? e.withStatus(CapabilityStatus.IMPLEMENTED) : e)
+                .toList();
+    }
+
+    /**
+     * A registry where the given capabilities are marked IMPLEMENTED. Used by executor tests to reproduce a
+     * later codebase state; the application bean always reflects the real codebase.
+     */
+    public static CapabilityRegistry withImplemented(Capability... implemented) {
+        return new CapabilityRegistry(implemented.length == 0 ? EnumSet.noneOf(Capability.class)
+                : EnumSet.copyOf(List.of(implemented)));
+    }
+
+    public static List<String> vocabulary(Capability capability) {
+        return VOCABULARY.get(capability);
+    }
 
     public List<CapabilityEntry> entries() {
         return entries;
@@ -68,10 +56,78 @@ public class CapabilityRegistry {
         return entries.stream().filter(e -> e.capability() == capability).findFirst().orElseThrow();
     }
 
-    private static CapabilityEntry planned(Capability capability, List<String> vocabulary, List<String> requirementIds,
-            List<BehaviorStatement> statements, List<String> probeIds) {
-        return new CapabilityEntry(capability, CapabilityStatus.PLANNED, vocabulary, requirementIds, statements,
-                probeIds, List.of(), List.of());
+    private static List<CapabilityEntry> defaults() {
+        return List.of(
+                planned(Capability.CREATE_LINK,
+                        List.of("FR-URL-001", "FR-URL-002", "FR-URL-003", "FR-URL-004", "FR-URL-005", "FR-URL-013",
+                                "FR-URL-016"),
+                        List.of(
+                                s("B1", "a client can create a short link for an absolute http/https address with a non-empty host"),
+                                s("B2", "other schemes (incl. javascript, file, data) are refused"),
+                                s("B3", "localhost and literal loopback/private hosts are refused without name resolution"),
+                                s("B4", "each code is unique, URL-safe, 7 characters, regenerated at most 5 times on collision"),
+                                s("B5", "addresses up to 2,048 characters"),
+                                s("B6", "storage unavailable means creation fails with service-unavailable and no code")),
+                        List.of("probe.create-link", "probe.reject-unsafe-url"),
+                        List.of("LinkController", "LinkService", "UrlValidator", "ShortCodeGenerator", "Link",
+                                "LinkRepository"),
+                        List.of("POST /api/links"),
+                        List.of("link table (V2__links.sql)"),
+                        List.of("UrlValidatorTest", "ShortCodeGeneratorTest", "LinkServiceCollisionTest", "LinkApiTest")),
+                planned(Capability.REDIRECT,
+                        List.of("FR-URL-006", "FR-URL-007", "FR-URL-013", "FR-URL-017"),
+                        List.of(
+                                s("B1", "an active link redirects to its original address"),
+                                s("B2", "an unknown code returns not-found"),
+                                s("B3", "storage unavailable means a redirect returns service-unavailable"),
+                                s("B4", "an analytics-recording failure does not prevent the redirect")),
+                        List.of("probe.redirect", "probe.unknown-code"),
+                        List.of("RedirectController", "LinkService", "LinkRepository"),
+                        List.of("GET /r/{code}"),
+                        List.of("link table (read)"),
+                        List.of("LinkApiTest", "LinkStorageFailureTest")),
+                planned(Capability.ANALYTICS,
+                        List.of("FR-URL-010", "FR-URL-012"),
+                        List.of(
+                                s("B1", "each successful redirect increments the link's count and sets its last-redirect time, readable by clients"),
+                                s("B2", "not-found and expired attempts are not counted"),
+                                s("B3", "no count is lost under concurrent redirects")),
+                        List.of("probe.redirect-count"),
+                        List.of("LinkService", "LinkRepository", "LinkController"),
+                        List.of("GET /api/links/{code}"),
+                        List.of("link.redirect_count, link.last_redirect_at"),
+                        List.of("LinkApiTest", "LinkConcurrencyTest")),
+                planned(Capability.IDEMPOTENCY,
+                        List.of("FR-URL-011"),
+                        List.of(
+                                s("B1", "a create request may carry an idempotency key"),
+                                s("B2", "same key and same content returns the first result"),
+                                s("B3", "same key and different content is a conflict"),
+                                s("B4", "no key means a new link")),
+                        List.of("probe.idempotent-replay", "probe.idempotent-conflict"),
+                        List.of("LinkService", "IdempotencyRecord", "IdempotencyRepository", "LinkController"),
+                        List.of("POST /api/links (Idempotency-Key header)"),
+                        List.of("idempotency_record table"),
+                        List.of("LinkApiTest")),
+                planned(Capability.EXPIRATION,
+                        List.of("FR-URL-008", "FR-URL-009"),
+                        List.of(
+                                s("B1", "a client may optionally supply an absolute expiration time per link"),
+                                s("B2", "it must be in the future"),
+                                s("B3", "after it, the link returns an expired result distinct from not-found, with no redirect and no count"),
+                                s("B4", "a link without an expiration never expires (existing links are unaffected)")),
+                        List.of("probe.expired-link"),
+                        List.of("Link", "LinkService", "LinkController", "RedirectController"),
+                        List.of("POST /api/links (expiresAt)", "GET /r/{code} (410 Gone)"),
+                        List.of("link.expires_at (V3__link_expiration.sql)"),
+                        List.of("LinkExpirationTest")));
+    }
+
+    private static CapabilityEntry planned(Capability capability, List<String> requirementIds,
+            List<BehaviorStatement> statements, List<String> probeIds, List<String> designComponents,
+            List<String> interfaces, List<String> dataChanges, List<String> plannedTests) {
+        return new CapabilityEntry(capability, CapabilityStatus.PLANNED, VOCABULARY.get(capability), requirementIds,
+                statements, probeIds, designComponents, interfaces, dataChanges, plannedTests, List.of(), List.of());
     }
 
     private static BehaviorStatement s(String code, String text) {

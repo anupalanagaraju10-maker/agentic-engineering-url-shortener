@@ -103,7 +103,9 @@ human-approved exceptions.
    - Results are `PASS`, `FAIL`, `EXCEPTION_REQUESTED` or `NOT_APPLICABLE`, and every run records
      the policy version.
    - A `FAIL` leads to safe-stop.
-   - `EXCEPTION_REQUESTED` blocks the node until a HUMAN decides:
+   - `EXCEPTION_REQUESTED` makes the run wait (`AWAITING_APPROVAL`, `pendingAction =
+     EXCEPTION:<checkId>`; the evaluated node has already succeeded, so the run rather than the node
+     waits; wording clarified in Phase 3, no decision change) until a HUMAN decides:
      - approval records the policy id, reason, scope, approving actor, compensating control,
        timestamp and expiry/review condition;
      - rejection leads to safe-stop.
