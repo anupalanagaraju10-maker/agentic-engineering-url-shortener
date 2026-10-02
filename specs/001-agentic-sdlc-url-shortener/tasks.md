@@ -860,7 +860,7 @@ behavior.
   **approve `DESIGN_APPROVAL`**. The run waits in `AWAITING_IMPLEMENTATION`. **No expiration code may
   exist before this approval.** Record the run id in `docs/scenarios/README.md`.
 - [X] T134 [US4] After T110 and before T111 (reference-alignment review F3; user guide brownfield
-  gate): write `docs/scenarios/scn-b-impact-analysis.md` from the live run's `IMPACT_ANALYSIS` and
+  gate): write `docs/scenarios/scn-b-impact-analysis.md` (renamed 2026-10-02 to `docs/scenarios/brownfield-impact-analysis.md`) from the live run's `IMPACT_ANALYSIS` and
   `DESIGN` outputs only (cite the run id and stage output; nothing invented): change-impact summary,
   dependency map (incl. `dataFlows`), test-first plan (T111–T113), regression-risk matrix. The
   candidate reviews it as part of the T110 decision record.
@@ -955,7 +955,7 @@ only after the clarification.
   `docs/scenarios/<scenario>/`.
   Traceability: FR-OBS-001, NFR-006 (runtime evidence only).
 - [X] T127 **HUMAN**: run `scripts/export-run.sh` for the live SCN-A, SCN-B and SCN-C runs and commit
-  the exported **runtime** evidence under `docs/scenarios/scn-a/`, `scn-b/` and `scn-c/`. Never edit
+  the exported **runtime** evidence under `docs/scenarios/scn-a/`, `scn-b/` and `scn-c/` (renamed 2026-10-02 to `greenfield/`, `brownfield/`, `ambiguous/`). Never edit
   it by hand.
 - [X] T128 [P] Consolidate and verify `docs/traceability/matrix.md` (built incrementally by each
   phase's traceability task): requirement → scenario → ADR → task → code → test → evidence. List only
@@ -1070,7 +1070,7 @@ controllers, the green run, and a HUMAN checkpoint.
 - Phase 10: T125, T126, T128, T129, T135, T136 and T137 [P].
 
 Task IDs T132–T139 were added on 2026-10-02 by the approved reference-alignment review
-(`docs/assessment/reference-alignment-review.md`); they are placed in execution order, not ID order.
+(its document, `docs/assessment/reference-alignment-review.md`, was removed from the repository on 2026-10-02 at the candidate's request; it remains in commit `297ff0b`); they are placed in execution order, not ID order.
 
 ### Parallel example — Phase 4 (US2)
 

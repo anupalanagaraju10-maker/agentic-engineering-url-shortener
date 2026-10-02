@@ -1,9 +1,14 @@
 # Scenario runs
 
+Scenario names map to the specification's scenario IDs: **Greenfield** = SCN-A (FR-SCN-001),
+**Brownfield** = SCN-B (FR-SCN-002), **Ambiguous** = SCN-C (FR-SCN-003). Exported runtime evidence:
+[`greenfield/`](greenfield/), [`brownfield/`](brownfield/), [`ambiguous/`](ambiguous/) (unedited output of
+`scripts/export-run.sh`; the JSON content keeps the IDs it was recorded with).
+
 Live runs on the local demonstration data directory `./data`. Every HUMAN-typed request below was
 issued by the candidate (pre-implementation review H5). Runtime exports follow in T127.
 
-## SCN-A — greenfield (FR-SCN-001)
+## Greenfield scenario (spec FR-SCN-001)
 
 - Run id: `d76be1a7-7e1d-4338-8fd4-c47535786b1e`
 - T049: `DESIGN_APPROVAL` granted by HUMAN/candidate (decision 3, 2026-10-02T12:53:17Z), plan version 1.
@@ -26,11 +31,11 @@ issued by the candidate (pre-implementation review H5). Runtime exports follow i
   (EXC-009); no authentication (EXC-003); DOCS/SECURITY intervals only touching.
 - Outcome: `COMPLETED`. 39 audit events, gap-free. Final report: `GET /api/workflows/{id}/report`.
 
-## SCN-B — brownfield (FR-SCN-002)
+## Brownfield scenario (spec FR-SCN-002)
 
 - Run id: `b4ff60fc-d24e-4833-8fd7-54625c1ccd48`, submitted by HUMAN/candidate on 2026-10-02T16:45:46Z
   on build `d157765` (Phase 7). BROWNFIELD, impact analysis with ten areas and data flows, CHG-01 PASS,
-  waiting at `DESIGN_APPROVAL` (plan 1). Pre-code impact analysis: [scn-b-impact-analysis.md](scn-b-impact-analysis.md).
+  waiting at `DESIGN_APPROVAL` (plan 1). Pre-code impact analysis: [brownfield-impact-analysis.md](brownfield-impact-analysis.md).
 - T110: `DESIGN_APPROVAL` granted by HUMAN/candidate (decision 14, 2026-10-02T17:55:21Z), plan version 1,
   after review of the impact analysis. No expiration code existed then (last commit `d157765`,
   2026-10-02T16:39:14Z); the expiration tests and code were written afterwards (Phase 8).
@@ -55,10 +60,10 @@ issued by the candidate (pre-implementation review H5). Runtime exports follow i
   `942efe8b-eb66-4027-9236-96b592042a75` were created by mistake on a stale Phase 5 process that was still
   serving port 8080, so their impact analyses lack data flows. Both were terminated by HUMAN/candidate
   (status FAILED) with that reason.
-  Run `f660508d-68f0-4f78-af41-ecf444983b66` was a duplicate SCN-B submission made by mistake after the
+  Run `f660508d-68f0-4f78-af41-ecf444983b66` was a duplicate brownfield scenario submission made by mistake after the
   design approval of `b4ff60fc`; it was terminated by HUMAN/candidate (status FAILED) with that reason.
 
-## SCN-C — ambiguous (FR-SCN-003)
+## Ambiguous scenario (spec FR-SCN-003)
 
 - Run id: `dbbf2627-5e6d-499e-8a57-44ccda16d54e`, requirement "Make links expire.", submitted by
   HUMAN/candidate on build `b3d0b8d` (Phase 8).
@@ -72,15 +77,15 @@ issued by the candidate (pre-implementation review H5). Runtime exports follow i
   (seq 25). UNDERSTAND re-ran with no findings; BROWNFIELD; IMPACT_ANALYSIS with data flows; PRIV-01,
   SEC-01, CHG-01 PASS at plan 2.
 - Replanned DESIGN: `implementationRequired = false`, `changesApprovedRequirements = []`, requirement IDs
-  FR-URL-008/009 — the clarified behavior is the expiration already implemented and released in SCN-B.
+  FR-URL-008/009 — the clarified behavior is the expiration already implemented and released in brownfield scenario.
 - `DESIGN_APPROVAL` at plan 2 by HUMAN/candidate (decision 23, 2026-10-02T18:35:39Z).
 - No-change implementation evidence by HUMAN/candidate (decision 24, 2026-10-02T18:36:13Z): empty changed
-  artifacts with a `noChangeJustification` citing SCN-B commit `b3d0b8d` and run `b4ff60fc`.
+  artifacts with a `noChangeJustification` citing brownfield scenario commit `b3d0b8d` and run `b4ff60fc`.
 - Validation of the running build (2026-10-02T18:36:13Z): TEST `probe.expired-link` passed (302, then 410
   EXPIRED, count stayed 1); SECURITY 20/20; DOCS 8/8; TEST overlaps DOCS and SECURITY, which only touch at
   one instant (final report `intervalsOverlapPairwise: true` with touching intervals counted); readiness
   ready, AUD-01 PASS.
 - `RELEASE_APPROVAL` at plan 2 by HUMAN/candidate (decision 25, 2026-10-02T18:37:21Z) with four accepted
-  risks: designed components not cited (no code change; implemented in SCN-B); self-reported no-change
+  risks: designed components not cited (no code change; implemented in brownfield scenario); self-reported no-change
   evidence; no authentication (EXC-003); DOCS/SECURITY intervals only touching.
 - Outcome: `COMPLETED`. 60 audit events, gap-free. Final report outcome `RELEASE_APPROVED`.

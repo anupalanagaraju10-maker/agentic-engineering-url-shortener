@@ -55,9 +55,9 @@ The quickstart walks through the three scenarios and every recovery demonstratio
 
 | Scenario | Requirement | Shows | Run |
 |---|---|---|---|
-| SCN-A greenfield | "Create a short link …, redirect …, record redirect count and last redirect time." | design approval → implementation → parallel validation → release | `d76be1a7…` COMPLETED |
-| SCN-B brownfield | "Add optional expiration to existing links; expired links return an expired result distinct from not-found." | impact analysis before code → approval → code → live 410 probe → release | `b4ff60fc…` COMPLETED |
-| SCN-C ambiguous | "Make links expire." | suspension for clarification → human answer → replan (plan 2) → no new code needed → release | `dbbf2627…` COMPLETED |
+| Greenfield | "Create a short link …, redirect …, record redirect count and last redirect time." | design approval → implementation → parallel validation → release | `d76be1a7…` COMPLETED |
+| Brownfield | "Add optional expiration to existing links; expired links return an expired result distinct from not-found." | impact analysis before code → approval → code → live 410 probe → release | `b4ff60fc…` COMPLETED |
+| Ambiguous | "Make links expire." | suspension for clarification → human answer → replan (plan 2) → no new code needed → release | `dbbf2627…` COMPLETED |
 
 ## Testing approach
 

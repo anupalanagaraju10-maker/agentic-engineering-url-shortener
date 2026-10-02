@@ -1,4 +1,4 @@
-# SCN-B — impact analysis before any code (T134)
+# Brownfield scenario — impact analysis before any code (T134)
 
 Brownfield change, reviewed **before** design approval and before any expiration code exists
 (FR-SCN-002, reference-alignment review F3). Every statement below is taken from the live run's
