@@ -441,6 +441,10 @@ approval is refused.
   redirect count and last redirect time.") as `HUMAN`/`candidate`. Review the design, then
   **approve `DESIGN_APPROVAL`** (plan version 1). The run now waits in `AWAITING_IMPLEMENTATION`.
   Note the run id in `docs/scenarios/README.md` (create the file with only this fact).
+  **Scope note (reference-alignment review F1):** the SCN-A run's requirement-ID set is fixed by
+  DECOMPOSE from the text above (create, redirect, analytics). FR-URL-011 (idempotency), FR-URL-014
+  (health) and FR-URL-015 (errors) are built in Phase 4 but are **outside** this run's scope; they are
+  traced through tasks and `docs/traceability/matrix.md`, not through the SCN-A run.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `feat: add governed workflow up to external implementation
 wait`.
@@ -608,7 +612,9 @@ parallel intervals and no remaining probe links.
   SCN-A implementation evidence via `POST …/implementation`:
   - changed artifacts from Phase 4;
   - the Phase 4 commit id as `revision`;
-  - requirement IDs within the run's set.
+  - requirement IDs within the run's set (read them from the run's `DESIGN` output
+    `requirementIds`; do not cite FR-URL-011/014/015 — the run refuses out-of-scope IDs with 409
+    `EVIDENCE_SCOPE_MISMATCH`, CHK004; see the T049 scope note).
 
   Inspect the parallel overlap, then **approve `RELEASE_APPROVAL`** with `acceptedRisks`. The run
   reaches `COMPLETED`.
@@ -802,7 +808,12 @@ and policy-exception rows behave as specified.
     statistics`.
 
   (FR-OBS-004/005, CHK016/017/030/038, SC-010)
-- [ ] T102 [US5] Run `./mvnw test` for T097–T101 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 7 checkpoint.
+- [ ] T132 [P] [US4] Extend `test/workflow/stages/ImpactAnalysisAndDesignTest.java` (reference-alignment
+  review F3, assignment §4.3 "data flows"): the brownfield impact output also contains a non-blank
+  `dataFlows` entry describing request → service → repository → table paths for each affected
+  capability, deterministic for identical input; CHG-01 is unchanged (still the 10 spec areas; `dataFlows`
+  is additive and not a CHG-01 condition). Runs red with T102.
+- [ ] T102 [US5] Run `./mvnw test` for T097–T101 and T132 (under `src/test/java/com/agentic/shortener/`) and record the expected failures in the Phase 7 checkpoint.
 
 ### Implementation
 
@@ -823,6 +834,10 @@ and policy-exception rows behave as specified.
 - [ ] T107 [US6] Implement `main/workflow/metrics/MetricsService.java` (derived from runs, stages and
   events only) and `main/workflow/api/MetricsController.java` (`GET /api/metrics/workflows`,
   `faultInjected` filter) per T101.
+- [ ] T133 [US4] Add the additive `dataFlows` output to `main/workflow/stages/ImpactAnalysisExecutor.java`
+  per T132, built from the existing `CapabilityRegistry` entries (interfaces, components, data changes);
+  `PolicyCatalog.IMPACT_AREAS` stays unchanged. Must land before T110 so the live SCN-B report
+  includes it. Traceability: FR-SCN-002, assignment §4.3.
 - [ ] T108 [US5] Run `./mvnw verify`. All tests green (record red → green).
 - [ ] T109 [US5] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 7 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
 
@@ -844,6 +859,11 @@ behavior.
   `IMPACT_ANALYSIS` with all 10 areas, and `CHG-01 PASS`. Review the impact analysis and design, then
   **approve `DESIGN_APPROVAL`**. The run waits in `AWAITING_IMPLEMENTATION`. **No expiration code may
   exist before this approval.** Record the run id in `docs/scenarios/README.md`.
+- [ ] T134 [US4] After T110 and before T111 (reference-alignment review F3; user guide brownfield
+  gate): write `docs/scenarios/scn-b-impact-analysis.md` from the live run's `IMPACT_ANALYSIS` and
+  `DESIGN` outputs only (cite the run id and stage output; nothing invented): change-impact summary,
+  dependency map (incl. `dataFlows`), test-first plan (T111–T113), regression-risk matrix. The
+  candidate reviews it as part of the T110 decision record.
 
 ### Tests first (after T110)
 
@@ -972,9 +992,38 @@ only after the clarification.
   makes it offline). Record the actual commands and results in
   `docs/assessment/measurements.md`.
   Traceability: NFR-007.
+- [ ] T135 [P] Write `src/test/java/com/agentic/shortener/contract/OpenApiContractTest.java`
+  (reference-alignment review F4; user guide "executable contract validation"): parse
+  `specs/001-agentic-sdlc-url-shortener/contracts/openapi.yaml` with SnakeYAML (already on the
+  classpath via `spring-boot-starter`; no new dependency, DEP-01 unaffected) and assert, against the
+  running MockMvc context, that every documented path + method is mapped (no 404/405) and that the
+  top-level response field names of `Run`, `Stage`, `AuditEvent`, `Decision` and `Link` match the
+  schema properties. Run it and record the real result. Traceability: FR-ORC-015, NFR-007.
+- [ ] T136 [P] Write `docs/architecture/overview.md` (assignment §5 deliverable; review F2, F6):
+  system context, component view (link plane / workflow plane), the 14-node graph with entry/exit
+  gates and the parallel join, persistence and audit model, actor model and **autonomy boundary**
+  (deterministic in-app stage agents, Claude Code as the external implementation `AGENT`, humans own
+  every gate; AMB-001 as the reason no LLM runs in the app), **replanning** (clarification,
+  requirement change and rework invalidate everything downstream of the changed node, plan version
+  +1), reliability mechanisms, and key trade-offs with links to ADR-0001…0005. Summarize; do not
+  duplicate the plan.
+- [ ] T137 [P] Write `docs/governance/human-gates-log.md` (review F7): one row per lifecycle human
+  gate (constitution ratification, spec approval, plan approval, ADR acceptance, checklist gate,
+  pre-implementation review, each phase commit approval, each live-run `DESIGN_APPROVAL` /
+  `RELEASE_APPROVAL`), each citing real evidence only (commit id, run id + decision id). No entry
+  without evidence.
+- [ ] T138 Write `docs/assessment/reviewer-navigation.md` (review F5): a short guide mapping each
+  assignment requirement and deliverable to the file, test or scenario evidence that demonstrates
+  it, plus a 10-minute reading order. Depends on T127–T129, T136, T137.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Then the remaining lifecycle stages follow: full validation,
 `/speckit.converge`, the independent final assessment, and the final engineering summary.
+
+- [ ] T139 After `/speckit.converge` and the final assessment: write
+  `docs/assessment/final-engineering-summary.md` (assignment §4.8 / §5; review F5) covering what was
+  built, architecture and trade-offs, the three scenarios with their real run ids, testing approach
+  and actual results, limitations and risks, and what would change for production. Real results
+  only; the candidate approves it before commit.
 
 ---
 
@@ -1016,9 +1065,12 @@ controllers, the green run, and a HUMAN checkpoint.
 - Phase 4: tests T050–T054 [P]; T057–T059 [P].
 - Phase 5: tests T065–T069 [P]; T071–T073 [P].
 - Phase 6: tests T079–T086 [P].
-- Phase 7: tests T097–T101 [P].
+- Phase 7: tests T097–T101 and T132 [P].
 - Phase 8: tests T111–T113 [P].
-- Phase 10: T125, T126, T128 and T129 [P].
+- Phase 10: T125, T126, T128, T129, T135, T136 and T137 [P].
+
+Task IDs T132–T139 were added on 2026-10-02 by the approved reference-alignment review
+(`docs/assessment/reference-alignment-review.md`); they are placed in execution order, not ID order.
 
 ### Parallel example — Phase 4 (US2)
 
