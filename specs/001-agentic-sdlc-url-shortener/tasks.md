@@ -57,6 +57,19 @@ At every **Checkpoint**, STOP and:
 3. **HUMAN** approves the commit, or directs changes. Nothing is pushed or tagged without explicit
    instruction.
 
+## Human-operated actions rule (pre-implementation review H5)
+
+There is no authentication, so `actorType` is self-declared. To keep human gates meaningful in this
+agentic setup:
+- **Every `HUMAN`-typed request is executed by the human candidate**, never by the assistant. That
+  covers approve, reject, clarify, rework, terminate, resume, requirement change and policy-exception
+  decisions. Run them e.g. as `! curl …` in the Claude Code session, so the transcript shows who
+  issued them.
+- The assistant may **prepare** these commands but MUST NOT send them.
+- The assistant sends only `AGENT`-typed requests (`actorIdentity: claude-code`): implementation
+  evidence, and submitting a requirement, and only when the human asks.
+- Automated tests use `HUMAN` actors as **labeled test fixtures**. They are not live decisions.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: can run in parallel (different files, no dependency on incomplete tasks)
@@ -151,7 +164,9 @@ needs. ⚠️ No user-story work starts before this phase is green.
       method and no update query;
     - the `AuditEvent` entity is immutable (Hibernate `@Immutable`, columns `updatable = false`,
       no setters), so an existing record cannot be changed through JPA;
-    - the only HTTP route over events is `GET /api/workflows/{id}/events`.
+    - the only HTTP route over events is `GET /api/workflows/{id}/events`;
+  - **concurrency (H1)**: 3 threads appending events to the same run at once produce unique,
+    gap-free `seq` values (no `UNIQUE(run_id, seq)` violation).
 
   (FR-OBS-001/002)
 - [ ] T015 [P] Write `test/workflow/engine/ActorValidatorTest.java`:
@@ -174,7 +189,14 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - the join waits for all three;
   - the engine stops at a `HUMAN_GATE` (`BLOCKED`, run `AWAITING_APPROVAL`) and at `IMPLEMENT`
     (`BLOCKED`, run `AWAITING_IMPLEMENTATION`);
-  - a conditional `PENDING→RUNNING` update prevents double execution under concurrent advance calls.
+  - a conditional `PENDING→RUNNING` update prevents double execution under concurrent advance calls;
+  - **thread ownership (H1)**: stub executors running on pool threads perform no database or audit
+    writes; all stage-row and event writes happen on the coordinating thread, so a parallel wave
+    causes no optimistic-lock conflict on `workflow_run`;
+  - **transaction boundaries (H2)**: while a stub executor is still running, its stage is visible
+    as `RUNNING` from a separate connection (the claim committed before execution);
+  - **busy run (H4)**: a second advance or command on a run whose lock is held returns
+    immediately with `409 CONFLICT` ("run busy"), without waiting.
 
   (FR-ORC-003..008, SC-002, ADR-0003)
 - [ ] T017 [P] Write `test/workflow/rules/CapabilityRegistryTest.java`:
@@ -248,22 +270,37 @@ needs. ⚠️ No user-story work starts before this phase is green.
   - it declares only `AuditEvent save(AuditEvent newEvent)`, used solely by `AuditService` for new
     events, plus finder methods.
 - [ ] T023 Implement `main/workflow/audit/AuditService.java`: append-only writes with per-run `seq`
-  and copied correlation/plan/policy version; `SYSTEM`/`workflow-engine` for engine events.
+  and copied correlation/plan/policy version; `SYSTEM`/`workflow-engine` for engine events. `seq`
+  allocation is serialized per run (an in-JVM per-run lock around read-max-plus-one and insert, in its
+  own short transaction) as a safety net, even though writes normally come only from the
+  coordinating thread (H1).
   Traceability: per T014; FR-OBS-001/002.
 - [ ] T024 [P] Implement `main/workflow/engine/Actor.java` (record `actorType`, `actorIdentity`) and
   `main/workflow/engine/ActorValidator.java` per T015.
 - [ ] T025 Implement `main/workflow/engine/WorkflowGraph.java` per T013: a static node definition
   with dependencies, kind, conditional flag and entry/exit-condition hooks.
 - [ ] T026 Implement `main/workflow/engine/StageExecutor.java` (interface `Node node(); StageResult
-  execute(StageContext ctx)`), `StageContext.java` (run, persisted upstream outputs) and
+  execute(StageContext ctx)`), `StageContext.java` (run, persisted upstream outputs, and the
+  attempt's cancellation token; H3) and
   `StageResult.java` (success output + provenance | failure class/code/reason).
   Traceability: per T016; FR-ORC-009, FR-ORC-014.
 - [ ] T027 Implement `main/workflow/engine/WorkflowEngine.java`:
   - wave scheduling on a fixed thread pool;
   - eligibility = `PENDING` and all dependencies `SUCCEEDED`/`SKIPPED`;
-  - per-run `ReentrantLock`, the optimistic `@Version`, and the conditional `PENDING→RUNNING`
-    update;
-  - output + `SUCCEEDED` committed in one completion transaction;
+  - per-run `ReentrantLock` taken with **`tryLock()` (no wait)**: if it is held ⇒ `409 CONFLICT`
+    "run busy" (H4); plus the optimistic `@Version` and the conditional `PENDING→RUNNING` update;
+  - **thread ownership (H1)**: pool threads only execute stage logic and return a `StageResult`,
+    with start/end timestamps and thread name captured by the worker. Every database and audit
+    write — stage claim, completion, failure, retry events, run-status changes — happens on the
+    coordinating thread that holds the run lock;
+  - **transaction boundaries (H2)**: commands and advancement are **not** wrapped in one surrounding
+    transaction (no `@Transactional` on controllers or the advance loop). Each step is its own short
+    transaction:
+    - (a) claim `PENDING→RUNNING` and `STAGE_STARTED`, committed before the stage is submitted;
+    - (b) on success, output + `SUCCEEDED` + events in one completion transaction;
+    - (c) on failure, attempt rollback + events.
+
+    The replan transaction (T103) is the only multi-step transaction;
   - start/end time and thread name recorded, with `STAGE_*` events;
   - stops at `HUMAN_GATE` (`BLOCKED`, `AWAITING_*`) and at `EXTERNAL_ACTION` (`BLOCKED`,
     `AWAITING_IMPLEMENTATION`, `IMPLEMENTATION_REQUESTED`);
@@ -335,7 +372,9 @@ approval is refused.
   - wrong gate or stale `planVersion` ⇒ `409` + `DECISION_REFUSED`, with state unchanged;
   - reject ⇒ `REJECTION` decision, `APPROVAL_REJECTED` event, `AWAITING_REWORK`;
   - terminate (HUMAN) from every `AWAITING_*` state ⇒ `FAILED` with a `TERMINATION` decision;
-  - a duplicate concurrent approval ⇒ the second gets `409` (CHK035).
+  - a duplicate concurrent approval ⇒ the second gets `409` (CHK035);
+  - a command sent while the run is busy advancing ⇒ immediate `409 CONFLICT` "run busy", not a
+    blocked request (H4).
 
   (FR-HUM-001..007, SC-003, CHK002, NFR-009)
 - [ ] T036 [P] [US1] Write `test/workflow/api/ImplementationEvidenceTest.java`:
@@ -397,7 +436,7 @@ approval is refused.
   contracts/openapi.yaml (FR-ORC-015).
 - [ ] T047 [US1] Run `./mvnw verify`. All tests green (record red → green).
 - [ ] T048 [US1] Update `docs/traceability/matrix.md` with rows for the requirements addressed in Phase 3 (requirement → task → code → test, listing only tests actually executed, with the command and real result). Update any documentation affected by this phase (e.g. `specs/001-agentic-sdlc-url-shortener/quickstart.md`, `README.md` once it exists). Constitution §Development Workflow.
-- [ ] T049 [US1] **HUMAN** (records in `docs/scenarios/README.md`): start the app on the demo database and submit the SCN-A requirement
+- [ ] T049 [US1] **HUMAN** (records in `docs/scenarios/README.md`): start the app with the default profile on the local demonstration data directory `./data` (not the `demo` profile), and submit the SCN-A requirement
   ("Create a short link for a valid HTTP/HTTPS address, redirect to the original address, and record
   redirect count and last redirect time.") as `HUMAN`/`candidate`. Review the design, then
   **approve `DESIGN_APPROVAL`** (plan version 1). The run now waits in `AWAITING_IMPLEMENTATION`.
@@ -528,6 +567,7 @@ parallel intervals and no remaining probe links.
   - AUD-01 `PASS`/`FAIL`;
   - every task needs a passing check;
   - residual risks include designed components missing from the evidence;
+  - readiness fails if any `link` row is still tagged with the run's `probe_run_id` (H3);
   - FINAL_REPORT is idempotent (same report on re-run), cites audit `seq` numbers, and the run is
     `COMPLETED`.
 
@@ -550,7 +590,9 @@ parallel intervals and no remaining probe links.
 
 ### Implementation
 
-- [ ] T071 [P] [US1] Implement `main/workflow/stages/TestStageExecutor.java` per T065.
+- [ ] T071 [P] [US1] Implement `main/workflow/stages/TestStageExecutor.java` per T065. Before each
+  probe-link creation, check the attempt's cancellation token (from `StageContext`), and stop
+  without further side effects if it is revoked (H3).
 - [ ] T072 [P] [US1] Implement `main/workflow/stages/SecurityExecutor.java` and `DocsExecutor.java`
   per T066 (no fallback yet).
 - [ ] T073 [P] [US1] Implement `main/workflow/stages/ReleaseReadinessExecutor.java` (with AUD-01) and
@@ -613,7 +655,10 @@ quickstart recovery table behaves as specified.
     `COMPENSATION_STARTED/COMPLETED` (probe links deleted), then retry;
   - `COMPENSATION_FAILURE` ⇒ `COMPENSATION_FAILED` ⇒ `SAFE_STOPPED`, non-recoverable;
   - permanent non-defect failure ⇒ compensation ⇒ `FAILED`;
-  - terminate runs the compensation sweep.
+  - terminate runs the compensation sweep;
+  - **timed-out attempt keeps working (H3)**: a TEST attempt whose probe creation is slowed past the
+    timeout is cancelled. Its token is revoked, so it creates no further probe links; the sweep runs
+    before the next attempt; and after the run completes, **zero** links tagged with the run remain.
 
   (FR-REL-006, ADR-0005 §5/6)
 - [ ] T083 [P] [US3] Write `test/workflow/engine/SafeStopResumeTest.java`:
@@ -631,7 +676,9 @@ quickstart recovery table behaves as specified.
     (`INTERRUPTED`, recoverable);
   - a run left `RUNNING` with **no** stage `RUNNING` ⇒ compensation sweep, run `SAFE_STOPPED`
     (`INTERRUPTED`, recoverable);
-  - no stage is re-executed until HUMAN `resume`.
+  - no stage is re-executed until HUMAN `resume`;
+  - the `RUNNING` stage found at restart was committed by its own claim transaction, not lost in a
+    surrounding transaction (H2).
 
   (FR-ORC-006, NFR-004, SC-005, CHK033)
 - [ ] T085 [P] [US3] Write `test/workflow/engine/IncidentEventsTest.java`:
@@ -660,11 +707,16 @@ quickstart recovery table behaves as specified.
   Traceability: per T079; FR-REL-011.
 - [ ] T089 [US3] Implement `main/workflow/engine/RetryTimeoutRunner.java` (`Future.get(timeout)` plus
   cancel; transient-only retry; 3 attempts; 100/200 ms backoff; events) and wire it into
-  `WorkflowEngine.java`.
+  `WorkflowEngine.java`. The runner lives on the **coordinating side** (H1): it submits each attempt
+  to the pool, waits with the timeout, and writes retry/timeout events itself. Each attempt gets a
+  fresh **cancellation token** that is revoked on timeout; a late result from a revoked attempt is
+  always discarded (H3).
   Traceability: per T080; FR-REL-001..004, PVT-001/002.
 - [ ] T090 [US3] Add the DOCS fallback template to `main/workflow/stages/DocsExecutor.java` per T081.
 - [ ] T091 [US3] Implement `main/workflow/engine/CompensationService.java`: an idempotent sweep via
   `LinkService.deleteProbeLinks(runId)`, with events, and safe-stop on failure. Wire it to:
+  - **before every TEST attempt**, including the first, so leftovers from a timed-out attempt are
+    removed (H3);
   - a failed TEST attempt;
   - a permanent failure;
   - terminate;
@@ -909,7 +961,10 @@ only after the clarification.
     - the runtime cannot observe when external coding started (CHK024);
     - transitive Hibernate is LGPL-2.1+ (research R11);
     - no destructive or irreversible action exists; one would need its own HUMAN gate
-      (FR-HUM-001, research R12).
+      (FR-HUM-001, research R12);
+    - human-operated actions rule: every HUMAN-typed request in the live demonstrations was issued
+      by the candidate, not the assistant (pre-implementation review H5);
+    - back up `./data` before risky steps, because live evidence lives there until exported (T127).
 - [ ] T130 Run quickstart.md validation end to end on a fresh `./data`, and fix any documentation
   mismatch (documentation only; any behavior change goes back through change control).
 - [ ] T131 Clean-clone verification: `git clone` into a temp directory, `./mvnw verify`, start
