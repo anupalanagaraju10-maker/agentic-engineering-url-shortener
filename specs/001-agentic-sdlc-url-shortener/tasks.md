@@ -89,7 +89,7 @@ Single Maven module at repository root (plan §Project Structure, ADR-0001).
 **Purpose**: walking skeleton that builds, starts, and reports health. The first build downloads
 uncached artifacts such as `spring-boot-starter-data-jpa` and Hibernate; later builds run offline.
 
-- [ ] T001 Create `pom.xml`:
+- [X] T001 Create `pom.xml`:
   - coordinates `com.agentic:url-shortener`; Java 21;
   - parent `spring-boot-starter-parent` **3.5.16** (pinned; verified present in the local Maven cache
     on 2026-10-02);
@@ -97,30 +97,30 @@ uncached artifacts such as `spring-boot-starter-data-jpa` and Hibernate; later b
     `spring-boot-starter-validation`, `spring-boot-starter-actuator`, `flyway-core`, `com.h2database:h2`
     (runtime), and `spring-boot-starter-test` (test). No other dependencies (ADR-0001, DEP-01 list);
   - Surefire excludes JUnit tag `measurement` by default.
-- [ ] T002 Add the Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/maven-wrapper.properties`)
+- [X] T002 Add the Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/maven-wrapper.properties`)
   pinned to Maven 3.9.x.
-- [ ] T003 [P] Create `.gitignore` with `target/`, `data/`, `*.mv.db`, `*.trace.db` and IDE folders
+- [X] T003 [P] Create `.gitignore` with `target/`, `data/`, `*.mv.db`, `*.trace.db` and IDE folders
   (`.idea/`, `.vscode/`, `*.iml`).
-- [ ] T004 [P] Create `.gitattributes` normalizing text files (`* text=auto eol=lf`; `*.cmd text eol=crlf`), to
+- [X] T004 [P] Create `.gitattributes` normalizing text files (`* text=auto eol=lf`; `*.cmd text eol=crlf`), to
   stop the CRLF warnings seen in earlier commits.
-- [ ] T005 Write the failing test `test/ApplicationSmokeTest.java`: the context loads, and
+- [X] T005 Write the failing test `test/ApplicationSmokeTest.java`: the context loads, and
   `GET /actuator/health` returns 200 `{"status":"UP"}`. Run it and record the failure (no
   application class yet).
-- [ ] T006 Create `main/ShortenerApplication.java` (a plain `@SpringBootApplication`
+- [X] T006 Create `main/ShortenerApplication.java` (a plain `@SpringBootApplication`
   bootstrap; no orchestration logic).
-- [ ] T007 Create `src/main/resources/application.yml` with:
+- [X] T007 Create `src/main/resources/application.yml` with:
   - datasource `jdbc:h2:file:./data/shortener`;
   - `spring.jpa.hibernate.ddl-auto=validate`; Flyway enabled;
   - `management.endpoints.web.exposure.include=health`;
   - `server.error.include-stacktrace=never`;
   - `workflow.fault-injection.enabled=false`, `workflow.stage-timeout=5s`,
     `workflow.retry.max-attempts=3`, `workflow.retry.backoff=100ms,200ms`.
-- [ ] T008 [P] Create `src/main/resources/application-demo.yml` (only
+- [X] T008 [P] Create `src/main/resources/application-demo.yml` (only
   `workflow.fault-injection.enabled=true`) and `src/test/resources/application-test.yml`
   (in-memory H2 `jdbc:h2:mem:…;DB_CLOSE_DELAY=-1`, `workflow.stage-timeout=300ms`).
-- [ ] T009 Run `./mvnw verify`. `ApplicationSmokeTest` passes. Then rerun with `./mvnw -o verify` to
+- [X] T009 Run `./mvnw verify`. `ApplicationSmokeTest` passes. Then rerun with `./mvnw -o verify` to
   confirm offline builds work once the cache is populated.
-- [ ] T010 Create `docs/traceability/matrix.md` with its column header (Requirement · Scenario · ADR · Task · Code · Test · Executed command/result · Evidence) and the Phase 1 rows (FR-URL-014 health via `ApplicationSmokeTest`, executed tests only). Constitution §Development Workflow.
+- [X] T010 Create `docs/traceability/matrix.md` with its column header (Requirement · Scenario · ADR · Task · Code · Test · Executed command/result · Evidence) and the Phase 1 rows (FR-URL-014 health via `ApplicationSmokeTest`, executed tests only). Constitution §Development Workflow.
 
 **Checkpoint** (protocol above: report → pre-commit review → HUMAN commit approval). Suggested commit: `chore: add Spring Boot walking skeleton`.
 
@@ -927,7 +927,7 @@ only after the clarification.
 
 - [ ] T125 [P] Write `src/test/java/com/agentic/shortener/PerformanceMeasurementTest.java`
   (`@Tag("measurement")`): measure PVT-003 (p95 create/redirect), PVT-004 (SCN-A automated-active
-  duration) and PVT-005 (startup to healthy). Run `./mvnw test -Dgroups=measurement` and record the
+  duration) and PVT-005 (startup to healthy). Run `./mvnw test -Dgroups=measurement -Dtest.excluded.groups=none` (pom excludes the tag by default) and record the
   actual results, labeled demonstration and non-blocking, in `docs/assessment/measurements.md`
   (NFR-010, SC-011).
 - [ ] T126 [P] Create `scripts/export-run.sh`. It uses `curl` to fetch `GET /api/workflows/{id}`,
@@ -1047,5 +1047,5 @@ then: T057 entities/repos ‖ T058 UrlValidator ‖ T059 ShortCodeGenerator → 
 - HUMAN tasks are decisions or actions the assistant must not perform or simulate.
 - Test fixtures used for automated scenario tests are labeled as fixtures. Live-run evidence comes
   only from the running system (T127).
-- `/speckit-implement` reads `checklists/orchestration.md` checkbox state as a gate. 42 items are
-  currently unchecked, pending reviewer evaluation.
+- `/speckit-implement` reads `checklists/orchestration.md` checkbox state as a gate (42/42 checked
+  since 2026-10-02).

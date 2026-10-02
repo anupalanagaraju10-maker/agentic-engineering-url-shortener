@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: url-shortener
+  datasource:
+    # File-backed H2: workflow state and links survive restart (ADR-0002, FR-ORC-006)
+    url: jdbc:h2:file:./data/shortener
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate   # schema is owned by Flyway only
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  error:
+    include-stacktrace: never   # FR-URL-015: no stack traces in responses
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health   # only health is exposed (plan §Security approach)
+
+workflow:
+  fault-injection:
+    enabled: false        # off by default; enabled only by the demo profile or tests (CHK038)
+  stage-timeout: 5s       # PVT-002
+  retry:
+    max-attempts: 3       # PVT-001: 2 retries
+    backoff: 100ms,200ms

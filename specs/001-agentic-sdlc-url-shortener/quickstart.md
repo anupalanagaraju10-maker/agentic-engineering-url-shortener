@@ -13,7 +13,7 @@ Planned, not yet runnable — commands become valid as implementation slices lan
 
 ```bash
 ./mvnw verify                              # unit + integration + scenario tests
-./mvnw test -Dgroups=measurement           # PVT-003..005 measurements (demonstration, non-blocking)
+./mvnw test -Dgroups=measurement -Dtest.excluded.groups=none   # PVT-003..005 measurements (demonstration, non-blocking); the override lifts the default exclusion of the `measurement` tag set in pom.xml
 ./mvnw spring-boot:run                     # start on http://localhost:8080 (fault injection OFF)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo   # demo profile: fault injection ON
 curl -s localhost:8080/actuator/health     # {"status":"UP"}

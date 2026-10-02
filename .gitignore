@@ -1,0 +1,12 @@
+# Build output
+target/
+
+# Local H2 demonstration database (live workflow evidence lives here until exported, T127)
+data/
+*.mv.db
+*.trace.db
+
+# IDE
+.idea/
+.vscode/
+*.iml

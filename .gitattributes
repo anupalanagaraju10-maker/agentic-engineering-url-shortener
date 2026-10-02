@@ -1,0 +1,5 @@
+# Normalize line endings (stops the LF/CRLF warnings seen in earlier commits)
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.jar binary

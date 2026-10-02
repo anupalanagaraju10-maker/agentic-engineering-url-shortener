@@ -1,0 +1,4 @@
+# Demonstration profile: enables controlled fault injection only (CHK038). Nothing else changes.
+workflow:
+  fault-injection:
+    enabled: true
